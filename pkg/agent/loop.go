@@ -455,7 +455,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 
 	// 7. Optional: summarization
 	if opts.EnableSummary {
-		al.maybeSummarize(agent, opts.SessionKey, opts.Channel, opts.ChatID)
+		al.maybeSummarize(agent, opts.SessionKey, opts.Channel, opts.ChatID, opts.ThreadID)
 	}
 
 	// 8. Optional: send response via bus
@@ -579,6 +579,7 @@ func (al *AgentLoop) runLLMIteration(
 					al.bus.PublishOutbound(bus.OutboundMessage{
 						Channel: opts.Channel,
 						ChatID:  opts.ChatID,
+						ThreadID: opts.ThreadID,
 						Content: "Context window exceeded. Compressing history and retrying...",
 					})
 				}
@@ -762,7 +763,7 @@ func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID, t
 
 // maybeSummarize triggers summarization if the session history exceeds thresholds.
 // Uses token-oriented approach instead of message count to better handle large context windows.
-func (al *AgentLoop) maybeSummarize(agent *AgentInstance, sessionKey, channel, chatID string) {
+func (al *AgentLoop) maybeSummarize(agent *AgentInstance, sessionKey, channel, chatID, threadID string) {
 	newHistory := agent.Sessions.GetHistory(sessionKey)
 	tokenEstimate := al.estimateTokens(newHistory)
 
@@ -790,6 +791,7 @@ func (al *AgentLoop) maybeSummarize(agent *AgentInstance, sessionKey, channel, c
 					al.bus.PublishOutbound(bus.OutboundMessage{
 						Channel: channel,
 						ChatID:  chatID,
+						ThreadID: threadID,
 						Content: "Memory threshold reached. Optimizing conversation history...",
 					})
 				}
