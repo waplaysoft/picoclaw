@@ -29,6 +29,11 @@ import (
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
+const (
+	DEFAULT_COMPACTION_RESERVE_TOKENS_FLOOR = 20000
+	DEFAULT_COMPACTION_KEEP_RECENT_TOKENS   = 20000
+)
+
 type AgentLoop struct {
 	bus            *bus.MessageBus
 	cfg            *config.Config
@@ -748,12 +753,27 @@ func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID st
 }
 
 // maybeSummarize triggers summarization if the session history exceeds thresholds.
+// Uses token-oriented approach instead of message count to better handle large context windows.
 func (al *AgentLoop) maybeSummarize(agent *AgentInstance, sessionKey, channel, chatID string) {
 	newHistory := agent.Sessions.GetHistory(sessionKey)
 	tokenEstimate := al.estimateTokens(newHistory)
-	threshold := agent.ContextWindow * 75 / 100
 
-	if len(newHistory) > 20 || tokenEstimate > threshold {
+	// Get compaction settings from defaults (use configured values or defaults)
+	reserveTokensFloor := DEFAULT_COMPACTION_RESERVE_TOKENS_FLOOR
+	keepRecentTokens := DEFAULT_COMPACTION_KEEP_RECENT_TOKENS
+
+	if al.cfg != nil && al.cfg.Agents.Defaults.Compaction.ReserveTokensFloor > 0 {
+		reserveTokensFloor = al.cfg.Agents.Defaults.Compaction.ReserveTokensFloor
+	}
+	if al.cfg != nil && al.cfg.Agents.Defaults.Compaction.KeepRecentTokens > 0 {
+		keepRecentTokens = al.cfg.Agents.Defaults.Compaction.KeepRecentTokens
+	}
+
+	// Trigger compaction when we're close to the context window limit
+	// Threshold: ContextWindow - ReserveTokensFloor (e.g., for 200k context: trigger at 180k)
+	triggerThreshold := agent.ContextWindow - reserveTokensFloor
+
+	if tokenEstimate > triggerThreshold {
 		summarizeKey := agent.ID + ":" + sessionKey
 		if _, loading := al.summarizing.LoadOrStore(summarizeKey, true); !loading {
 			go func() {
@@ -765,7 +785,7 @@ func (al *AgentLoop) maybeSummarize(agent *AgentInstance, sessionKey, channel, c
 						Content: "Memory threshold reached. Optimizing conversation history...",
 					})
 				}
-				al.summarizeSession(agent, sessionKey)
+				al.summarizeSessionWithTokenLimit(agent, sessionKey, keepRecentTokens)
 			}()
 		}
 	}
@@ -1018,6 +1038,106 @@ func (al *AgentLoop) summarizeBatch(
 		return "", err
 	}
 	return response.Content, nil
+}
+
+// summarizeSessionWithTokenLimit summarizes conversation history using a token-oriented approach.
+// Keeps the last keepRecentTokens tokens instead of a fixed number of messages.
+func (al *AgentLoop) summarizeSessionWithTokenLimit(agent *AgentInstance, sessionKey string, keepRecentTokens int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	history := agent.Sessions.GetHistory(sessionKey)
+	summary := agent.Sessions.GetSummary(sessionKey)
+
+	// Find the split point based on token limit
+	// We iterate from the end, accumulating tokens until we hit the limit
+	keepStartIdx := len(history)
+	currentTokens := 0
+
+	for i := len(history) - 1; i >= 0; i-- {
+		msgTokens := al.estimateTokens([]providers.Message{history[i]})
+		if currentTokens+msgTokens > keepRecentTokens {
+			break
+		}
+		currentTokens += msgTokens
+		keepStartIdx = i
+	}
+
+	// If there's not enough to summarize, return
+	if keepStartIdx <= 1 {
+		return
+	}
+
+	toSummarize := history[:keepStartIdx]
+	if len(toSummarize) == 0 {
+		return
+	}
+
+	// Oversized Message Guard
+	maxMessageTokens := agent.ContextWindow / 2
+	validMessages := make([]providers.Message, 0)
+	omitted := false
+
+	for _, m := range toSummarize {
+		if m.Role != "user" && m.Role != "assistant" {
+			continue
+		}
+		msgTokens := len(m.Content) / 2
+		if msgTokens > maxMessageTokens {
+			omitted = true
+			continue
+		}
+		validMessages = append(validMessages, m)
+	}
+
+	if len(validMessages) == 0 {
+		return
+	}
+
+	// Multi-Part Summarization
+	var finalSummary string
+	if len(validMessages) > 10 {
+		mid := len(validMessages) / 2
+		part1 := validMessages[:mid]
+		part2 := validMessages[mid:]
+
+		s1, _ := al.summarizeBatch(ctx, agent, part1, "")
+		s2, _ := al.summarizeBatch(ctx, agent, part2, "")
+
+		mergePrompt := fmt.Sprintf(
+			"Merge these two conversation summaries into one cohesive summary:\n\n1: %s\n\n2: %s",
+			s1,
+			s2,
+		)
+		resp, err := agent.Provider.Chat(
+			ctx,
+			[]providers.Message{{Role: "user", Content: mergePrompt}},
+			nil,
+			agent.Model,
+			map[string]any{
+				"max_tokens":  1024,
+				"temperature": 0.3,
+			},
+		)
+		if err == nil {
+			finalSummary = resp.Content
+		} else {
+			finalSummary = s1 + " " + s2
+		}
+	} else {
+		finalSummary, _ = al.summarizeBatch(ctx, agent, validMessages, summary)
+	}
+
+	if omitted && finalSummary != "" {
+		finalSummary += "\n[Note: Some oversized messages were omitted from this summary for efficiency.]"
+	}
+
+	if finalSummary != "" {
+		agent.Sessions.SetSummary(sessionKey, finalSummary)
+		// Keep only the messages that weren't summarized
+		agent.Sessions.SetHistory(sessionKey, history[keepStartIdx:])
+		agent.Sessions.Save(sessionKey)
+	}
 }
 
 // estimateTokens estimates the number of tokens in a message list.
