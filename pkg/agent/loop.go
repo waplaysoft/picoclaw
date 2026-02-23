@@ -341,7 +341,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		UserMessage:     msg.Content,
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
-		SendResponse:    false,
+		SendResponse:    true,
 	})
 }
 
