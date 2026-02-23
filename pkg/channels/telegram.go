@@ -183,10 +183,20 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 	tgMsg.ParseMode = telego.ModeHTML
 
 	// Add thread ID if specified
+	logger.DebugCF("telegram", "Preparing outbound message",
+		map[string]any{
+			"chat_id":   msg.ChatID,
+			"thread_id": msg.ThreadID,
+			"content":   utils.Truncate(msg.Content, 100),
+		})
 	if msg.ThreadID != "" {
 		var threadID int
 		if _, err := fmt.Sscanf(msg.ThreadID, "%d", &threadID); err == nil {
 			tgMsg.MessageThreadID = threadID
+			logger.InfoCF("telegram", "Setting MessageThreadID", map[string]any{
+				"thread_id": threadID,
+				"chat_id":   chatID,
+			})
 		}
 	}
 

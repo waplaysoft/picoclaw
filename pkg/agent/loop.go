@@ -291,6 +291,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 			"chat_id":     msg.ChatID,
 			"sender_id":   msg.SenderID,
 			"session_key": msg.SessionKey,
+			"thread_id":   msg.ThreadID,
 		})
 
 	// Route system messages to processSystemMessage
@@ -460,6 +461,13 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 
 	// 8. Optional: send response via bus
 	if opts.SendResponse {
+		logger.DebugCF("agent", "Publishing outbound message",
+			map[string]any{
+				"channel":   opts.Channel,
+				"chat_id":   opts.ChatID,
+				"thread_id": opts.ThreadID,
+				"content":   utils.Truncate(finalContent, 100),
+			})
 		al.bus.PublishOutbound(bus.OutboundMessage{
 			Channel: opts.Channel,
 			ChatID:  opts.ChatID,
