@@ -123,10 +123,11 @@ func registerSharedTools(
 
 		// Message tool
 		messageTool := tools.NewMessageTool()
-		messageTool.SetSendCallback(func(channel, chatID, content string) error {
+		messageTool.SetSendCallback(func(channel, chatID, content, threadID string) error {
 			msgBus.PublishOutbound(bus.OutboundMessage{
 				Channel: channel,
 				ChatID:  chatID,
+				ThreadID: threadID,
 				Content: content,
 			})
 			return nil
@@ -413,7 +414,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 	}
 
 	// 1. Update tool contexts
-	al.updateToolContexts(agent, opts.Channel, opts.ChatID)
+	al.updateToolContexts(agent, opts.Channel, opts.ChatID, opts.ThreadID)
 
 	// 2. Build messages (skip history for heartbeat)
 	var history []providers.Message
@@ -739,21 +740,21 @@ func (al *AgentLoop) runLLMIteration(
 }
 
 // updateToolContexts updates the context for tools that need channel/chatID info.
-func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID string) {
+func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID, threadID string) {
 	// Use ContextualTool interface instead of type assertions
 	if tool, ok := agent.Tools.Get("message"); ok {
 		if mt, ok := tool.(tools.ContextualTool); ok {
-			mt.SetContext(channel, chatID)
+			mt.SetContext(channel, chatID, threadID)
 		}
 	}
 	if tool, ok := agent.Tools.Get("spawn"); ok {
 		if st, ok := tool.(tools.ContextualTool); ok {
-			st.SetContext(channel, chatID)
+			st.SetContext(channel, chatID, threadID)
 		}
 	}
 	if tool, ok := agent.Tools.Get("subagent"); ok {
 		if st, ok := tool.(tools.ContextualTool); ok {
-			st.SetContext(channel, chatID)
+			st.SetContext(channel, chatID, threadID)
 		}
 	}
 }
