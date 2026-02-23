@@ -50,6 +50,7 @@ type processOptions struct {
 	SessionKey      string // Session identifier for history/context
 	Channel         string // Target channel for tool execution
 	ChatID          string // Target chat ID for tool execution
+	ThreadID        string // Target thread ID (for Telegram topics)
 	UserMessage     string // User message content (may include prefix)
 	DefaultResponse string // Response when LLM returns empty
 	EnableSummary   bool   // Whether to trigger summarization
@@ -334,6 +335,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		SessionKey:      sessionKey,
 		Channel:         msg.Channel,
 		ChatID:          msg.ChatID,
+		ThreadID:        msg.ThreadID,
 		UserMessage:     msg.Content,
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
@@ -460,7 +462,8 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 		al.bus.PublishOutbound(bus.OutboundMessage{
 			Channel: opts.Channel,
 			ChatID:  opts.ChatID,
-			Content: finalContent,
+			ThreadID: opts.ThreadID,
+			Content:  finalContent,
 		})
 	}
 
@@ -704,6 +707,7 @@ func (al *AgentLoop) runLLMIteration(
 				al.bus.PublishOutbound(bus.OutboundMessage{
 					Channel: opts.Channel,
 					ChatID:  opts.ChatID,
+					ThreadID: opts.ThreadID,
 					Content: toolResult.ForUser,
 				})
 				logger.DebugCF("agent", "Sent tool result to user",
