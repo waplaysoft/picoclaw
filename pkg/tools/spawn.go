@@ -9,15 +9,17 @@ type SpawnTool struct {
 	manager        *SubagentManager
 	originChannel  string
 	originChatID   string
+	originThreadID string
 	allowlistCheck func(targetAgentID string) bool
 	callback       AsyncCallback // For async completion notification
 }
 
 func NewSpawnTool(manager *SubagentManager) *SpawnTool {
 	return &SpawnTool{
-		manager:       manager,
-		originChannel: "cli",
-		originChatID:  "direct",
+		manager:        manager,
+		originChannel:  "cli",
+		originChatID:   "direct",
+		originThreadID: "",
 	}
 }
 
@@ -55,9 +57,10 @@ func (t *SpawnTool) Parameters() map[string]any {
 	}
 }
 
-func (t *SpawnTool) SetContext(channel, chatID string) {
+func (t *SpawnTool) SetContext(channel, chatID, threadID string) {
 	t.originChannel = channel
 	t.originChatID = chatID
+	t.originThreadID = threadID
 }
 
 func (t *SpawnTool) SetAllowlistChecker(check func(targetAgentID string) bool) {

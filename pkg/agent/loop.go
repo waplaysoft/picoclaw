@@ -700,6 +700,7 @@ func (al *AgentLoop) runLLMIteration(
 				tc.Arguments,
 				opts.Channel,
 				opts.ChatID,
+				opts.ThreadID,
 				asyncCallback,
 			)
 
