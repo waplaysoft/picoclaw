@@ -35,7 +35,7 @@ func (r *ToolRegistry) Get(name string) (Tool, bool) {
 }
 
 func (r *ToolRegistry) Execute(ctx context.Context, name string, args map[string]any) *ToolResult {
-	return r.ExecuteWithContext(ctx, name, args, "", "", nil)
+	return r.ExecuteWithContext(ctx, name, args, "", "", "", nil)
 }
 
 // ExecuteWithContext executes a tool with channel/chatID/threadID context and optional async callback.
