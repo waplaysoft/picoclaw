@@ -178,8 +178,17 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 		// Fallback to new message if edit fails
 	}
 
+	// Build message parameters
 	tgMsg := tu.Message(tu.ID(chatID), htmlContent)
 	tgMsg.ParseMode = telego.ModeHTML
+
+	// Add thread ID if specified
+	if msg.ThreadID != "" {
+		var threadID int
+		if _, err := fmt.Sscanf(msg.ThreadID, "%d", &threadID); err == nil {
+			tgMsg.MessageThreadID = threadID
+		}
+	}
 
 	if _, err = c.bot.SendMessage(ctx, tgMsg); err != nil {
 		logger.ErrorCF("telegram", "HTML parse failed, falling back to plain text", map[string]any{
@@ -371,7 +380,13 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		"peer_id":    peerID,
 	}
 
-	c.HandleMessage(fmt.Sprintf("%d", user.ID), fmt.Sprintf("%d", chatID), content, mediaPaths, metadata)
+	threadID := ""
+	if message.MessageThreadID != 0 {
+		threadID = fmt.Sprintf("%d", message.MessageThreadID)
+		metadata["thread_id"] = threadID
+	}
+
+	c.HandleMessage(fmt.Sprintf("%d", user.ID), fmt.Sprintf("%d", chatID), content, mediaPaths, metadata, threadID)
 	return nil
 }
 

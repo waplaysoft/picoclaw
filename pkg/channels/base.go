@@ -81,7 +81,7 @@ func (c *BaseChannel) IsAllowed(senderID string) bool {
 	return false
 }
 
-func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []string, metadata map[string]string) {
+func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []string, metadata map[string]string, threadID ...string) {
 	if !c.IsAllowed(senderID) {
 		return
 	}
@@ -93,6 +93,11 @@ func (c *BaseChannel) HandleMessage(senderID, chatID, content string, media []st
 		Content:  content,
 		Media:    media,
 		Metadata: metadata,
+	}
+
+	// Add thread ID if provided
+	if len(threadID) > 0 && threadID[0] != "" {
+		msg.ThreadID = threadID[0]
 	}
 
 	c.bus.PublishInbound(msg)

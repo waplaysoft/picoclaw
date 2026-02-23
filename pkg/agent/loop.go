@@ -193,9 +193,10 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 
 				if !alreadySent {
 					al.bus.PublishOutbound(bus.OutboundMessage{
-						Channel: msg.Channel,
-						ChatID:  msg.ChatID,
-						Content: response,
+						Channel:  msg.Channel,
+						ChatID:   msg.ChatID,
+						ThreadID:  msg.ThreadID,
+						Content:   response,
 					})
 				}
 			}
@@ -308,6 +309,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		ParentPeer: extractParentPeer(msg),
 		GuildID:    msg.Metadata["guild_id"],
 		TeamID:     msg.Metadata["team_id"],
+		ThreadID:   msg.ThreadID,
 	})
 
 	agent, ok := al.registry.GetAgent(route.AgentID)

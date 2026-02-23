@@ -14,6 +14,7 @@ type RouteInput struct {
 	ParentPeer *RoutePeer
 	GuildID    string
 	TeamID     string
+	ThreadID   string
 }
 
 // ResolvedRoute is the result of agent routing.
@@ -61,7 +62,7 @@ func (r *RouteResolver) ResolveRoute(input RouteInput) ResolvedRoute {
 			Peer:          peer,
 			DMScope:       dmScope,
 			IdentityLinks: identityLinks,
-		}))
+		}, input.ThreadID))
 		mainSessionKey := strings.ToLower(BuildAgentMainSessionKey(resolvedAgentID))
 		return ResolvedRoute{
 			AgentID:        resolvedAgentID,
