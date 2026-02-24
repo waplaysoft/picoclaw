@@ -353,8 +353,9 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 	}
 
 	// Send typing indicator
-	// Note: Typing indicator doesn't work in main chat of forum groups (Telegram limitation)
-	// Works fine in DM and forum topics
+	// For threads (thread_id > 1): use SendChatActionParams with MessageThreadID
+	// For main chat of forum groups (thread_id=1): use SendChatActionParams with MessageThreadID=1
+	// For DM: use simple SendChatAction
 	if threadIDInt != 0 {
 		// For threads, use SendChatActionParams with MessageThreadID
 		params := &telego.SendChatActionParams{
@@ -367,7 +368,19 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 				"error": err.Error(),
 			})
 		}
-	} else if message.Chat.Type == "private" {
+	} else if message.Chat.Type != "private" {
+		// For main chat of forum groups, try with MessageThreadID=1
+		params := &telego.SendChatActionParams{
+			ChatID:          tu.ID(chatID),
+			Action:          telego.ChatActionTyping,
+			MessageThreadID: 1, // Special ID for main chat in forum groups
+		}
+		if err := c.bot.SendChatAction(ctx, params); err != nil {
+			logger.ErrorCF("telegram", "Failed to send chat action (forum main chat)", map[string]any{
+				"error": err.Error(),
+			})
+		}
+	} else {
 		// For DM, use simple SendChatAction
 		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
 		if err != nil {
@@ -376,7 +389,6 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 			})
 		}
 	}
-	// Skip typing indicator for main chat of forum groups (doesn't work due to Telegram limitation)
 
 	// Stop any previous thinking animation
 	chatIDStr := fmt.Sprintf("%d", chatID)
