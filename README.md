@@ -279,7 +279,7 @@ Talk to your picoclaw through Telegram, Discord, DingTalk, LINE, or WeCom
 
 | Channel      | Setup                              |
 | ------------ | ---------------------------------- |
-| **Telegram** | Easy (just a token)                |
+| **Telegram** | Easy (just a token) · Topics support ✅ |
 | **Discord**  | Easy (bot token + intents)         |
 | **QQ**       | Easy (AppID + AppSecret)           |
 | **DingTalk** | Medium (app credentials)           |
@@ -576,6 +576,56 @@ Connect Picoclaw to the Agent Social Network simply by sending a single message 
 ## ⚙️ Configuration
 
 Config file: `~/.picoclaw/config.json`
+
+## ⚙️ Configuration
+
+### Context Window Management (New)
+
+PicoClaw provides advanced context window management to balance memory usage and conversation quality.
+
+| Parameter                | Default              | Description                                          |
+| ------------------------ | --------------------- | ---------------------------------------------------- |
+| `context_window`       | Model default         | Maximum input context tokens                |
+| `max_tokens`           | Model default         | Maximum tokens in LLM response                |
+| `reserve_tokens_floor` | 20000                 | Min tokens to leave free after compression  |
+| `keep_recent_tokens`  | 20000                 | Tokens to keep after compression             |
+
+#### Compaction Behavior
+
+PicoClaw uses a smart token-based compaction strategy:
+
+- **Trigger**: When context reaches 85-90% of `context_window`
+- **Action**: Compress history and keep last `keep_recent_tokens` tokens
+- **Reserve**: Always leave at least `reserve_tokens_floor` tokens free
+
+This prevents aggressive compression and maintains longer conversation context compared to fixed message limits.
+
+**Example configuration:**
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": "glm-4.7",
+      "context_window": 200000,
+      "max_tokens": 4096,
+      "compaction": {
+        "reserve_tokens_floor": 20000,
+        "keep_recent_tokens": 20000
+      }
+    }
+  },
+  "model_list": [
+    {
+      "model_name": "glm-large",
+      "model": "zhipu/glm-4.7",
+      "api_key": "your-zhipu-key"
+    }
+  ]
+}
+```
+
+> **Note**: `context_window` and `max_tokens` are separate concepts. `context_window` controls input size, `max_tokens` controls output size. For models with large context windows (e.g., GLM-4.7 with 200k tokens), set `max_tokens` much lower (e.g., 4096) to reserve tokens for long inputs.
 
 ### Workspace Layout
 
