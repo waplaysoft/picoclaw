@@ -166,16 +166,23 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 
 	htmlContent := markdownToTelegramHTML(msg.Content)
 
-	// Try to edit placeholder
-	if pID, ok := c.placeholders.Load(msg.ChatID); ok {
-		c.placeholders.Delete(msg.ChatID)
-		editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), htmlContent)
-		editMsg.ParseMode = telego.ModeHTML
+	// If thread_id is specified, skip placeholder editing and send directly to thread
+	// Placeholder was created in main chat, but response should go to thread
+	if msg.ThreadID == "" {
+		// Try to edit placeholder (only for messages without thread_id)
+		if pID, ok := c.placeholders.Load(msg.ChatID); ok {
+			c.placeholders.Delete(msg.ChatID)
+			editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), htmlContent)
+			editMsg.ParseMode = telego.ModeHTML
 
-		if _, err = c.bot.EditMessageText(ctx, editMsg); err == nil {
-			return nil
+			if _, err = c.bot.EditMessageText(ctx, editMsg); err == nil {
+				return nil
+			}
+			// Fallback to new message if edit fails
 		}
-		// Fallback to new message if edit fails
+	} else {
+		// Clear placeholder even if we're sending to thread
+		c.placeholders.Delete(msg.ChatID)
 	}
 
 	// Build message parameters
