@@ -714,6 +714,10 @@ func (al *AgentLoop) runLLMIteration(
 			)
 
 			// Send ForUser content to user immediately if not Silent
+			// NOTE: Disabled to prevent tool result spam in chat
+			// Tool results should only be visible to LLM, final response is enough for user
+			// Re-enable this if specific tools need to show progress/results to user
+			/*
 			if !toolResult.Silent && toolResult.ForUser != "" && opts.SendResponse {
 				al.bus.PublishOutbound(bus.OutboundMessage{
 					Channel: opts.Channel,
@@ -727,6 +731,7 @@ func (al *AgentLoop) runLLMIteration(
 						"content_len": len(toolResult.ForUser),
 					})
 			}
+			*/
 
 			// Determine content for LLM based on tool result
 			contentForLLM := toolResult.ForLLM
