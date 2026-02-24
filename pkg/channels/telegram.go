@@ -146,6 +146,64 @@ func (c *TelegramChannel) Stop(ctx context.Context) error {
 	return nil
 }
 
+// splitLongMessage splits a long message into multiple parts
+// Tries to split at reasonable break points (double newline or period + space)
+const MAX_TELEGRAM_MESSAGE_LENGTH = 4096
+
+func splitLongMessage(content string) []string {
+	if len(content) <= MAX_TELEGRAM_MESSAGE_LENGTH {
+		return []string{content}
+	}
+
+	var parts []string
+	remaining := content
+
+	for len(remaining) > 0 {
+		var part string
+		if len(remaining) > MAX_TELEGRAM_MESSAGE_LENGTH {
+			// Try to find a good break point in the last part of the message
+			lookahead := remaining[:MAX_TELEGRAM_MESSAGE_LENGTH]
+
+			// Priority 1: Double newline (paragraph break) - look backwards from the end
+			lastDoubleNewline := strings.LastIndex(lookahead, "\n\n")
+			if lastDoubleNewline > 0 {
+				part = remaining[:lastDoubleNewline]
+				remaining = remaining[lastDoubleNewline:]
+			} else {
+				// Priority 2: Last sentence ending (period + space)
+				lastSentenceEnd := strings.LastIndex(lookahead, ". ")
+				if lastSentenceEnd > 0 {
+					part = remaining[:lastSentenceEnd+1]
+					remaining = remaining[lastSentenceEnd+1:]
+				} else {
+					// Priority 3: Last sentence ending (period)
+					lastPeriod := strings.LastIndex(lookahead, ".")
+					if lastPeriod > 0 {
+						part = remaining[:lastPeriod]
+						remaining = remaining[lastPeriod:]
+					} else {
+						// Fallback: Hard split at limit
+						part = remaining[:MAX_TELEGRAM_MESSAGE_LENGTH]
+						remaining = remaining[MAX_TELEGRAM_MESSAGE_LENGTH:]
+					}
+				}
+			}
+		} else {
+			// Remaining content fits in one message
+			part = remaining
+			remaining = ""
+		}
+
+		// Trim whitespace from part and add if non-empty
+		part = strings.TrimSpace(part)
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+
+	return parts
+}
+
 func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) error {
 	if !c.IsRunning() {
 		return fmt.Errorf("telegram bot not running")
@@ -166,13 +224,27 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 
 	htmlContent := markdownToTelegramHTML(msg.Content)
 
+	// Split message if exceeds Telegram limit (4096 characters)
+	var messageParts []string
+	if len(htmlContent) > MAX_TELEGRAM_MESSAGE_LENGTH {
+		messageParts = splitLongMessage(htmlContent)
+		logger.WarnCF("telegram", "Long message split into parts",
+			map[string]any{
+				"original_len": len(htmlContent),
+				"parts_count":  len(messageParts),
+				"chat_id":      msg.ChatID,
+			})
+	} else {
+		messageParts = []string{htmlContent}
+	}
+
 	// If thread_id is specified, skip placeholder editing and send directly to thread
 	// Placeholder was created in main chat, but response should go to thread
-	if msg.ThreadID == "" {
-		// Try to edit placeholder (only for messages without thread_id)
+	if msg.ThreadID == "" && len(messageParts) == 1 {
+		// Try to edit placeholder (only for messages without thread_id and single part)
 		if pID, ok := c.placeholders.Load(msg.ChatID); ok {
 			c.placeholders.Delete(msg.ChatID)
-			editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), htmlContent)
+			editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), messageParts[0])
 			editMsg.ParseMode = telego.ModeHTML
 
 			if _, err = c.bot.EditMessageText(ctx, editMsg); err == nil {
@@ -181,29 +253,38 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 			// Fallback to new message if edit fails
 		}
 	} else {
-		// Clear placeholder even if we're sending to thread
+		// Clear placeholder if we're sending to thread or multiple messages
 		c.placeholders.Delete(msg.ChatID)
 	}
 
-	// Build message parameters
-	tgMsg := tu.Message(tu.ID(chatID), htmlContent)
-	tgMsg.ParseMode = telego.ModeHTML
-
-	// Add thread ID if specified
+	// Send message(s)
+	var threadIDInt int
 	if msg.ThreadID != "" {
-		var threadID int
-		if _, err := fmt.Sscanf(msg.ThreadID, "%d", &threadID); err == nil {
-			tgMsg.MessageThreadID = threadID
-		}
+		fmt.Sscanf(msg.ThreadID, "%d", &threadIDInt)
 	}
 
-	if _, err = c.bot.SendMessage(ctx, tgMsg); err != nil {
-		logger.ErrorCF("telegram", "HTML parse failed, falling back to plain text", map[string]any{
-			"error": err.Error(),
-		})
-		tgMsg.ParseMode = ""
-		_, err = c.bot.SendMessage(ctx, tgMsg)
-		return err
+	for i, part := range messageParts {
+		tgMsg := tu.Message(tu.ID(chatID), part)
+		tgMsg.ParseMode = telego.ModeHTML
+
+		// Add thread ID if specified
+		if threadIDInt != 0 {
+			tgMsg.MessageThreadID = threadIDInt
+		}
+
+		if _, err = c.bot.SendMessage(ctx, tgMsg); err != nil {
+			logger.ErrorCF("telegram", "Failed to send message part",
+				map[string]any{
+					"part":       i + 1,
+					"total_parts": len(messageParts),
+					"error":      err.Error(),
+				})
+		}
+
+		// Delay between parts (except last)
+		if i < len(messageParts)-1 {
+			time.Sleep(1 * time.Second)
+		}
 	}
 
 	return nil
