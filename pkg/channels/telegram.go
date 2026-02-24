@@ -171,18 +171,37 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 	if msg.ThreadID == "" {
 		// Try to edit placeholder (only for messages without thread_id)
 		if pID, ok := c.placeholders.Load(msg.ChatID); ok {
+			logger.InfoCF("telegram", "Editing placeholder",
+				map[string]any{
+					"chat_id":   msg.ChatID,
+					"message_id": pID,
+				})
 			c.placeholders.Delete(msg.ChatID)
 			editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), htmlContent)
 			editMsg.ParseMode = telego.ModeHTML
 
 			if _, err = c.bot.EditMessageText(ctx, editMsg); err == nil {
+				logger.InfoCF("telegram", "Placeholder edited successfully",
+					map[string]any{
+						"chat_id":   msg.ChatID,
+						"message_id": pID,
+					})
 				return nil
 			}
-			// Fallback to new message if edit fails
+			logger.InfoCF("telegram", "Placeholder edit failed, falling back to new message",
+				map[string]any{
+					"chat_id": msg.ChatID,
+					"error":    err.Error(),
+				})
 		}
 	} else {
 		// Clear placeholder even if we're sending to thread
 		c.placeholders.Delete(msg.ChatID)
+		logger.InfoCF("telegram", "Skipping placeholder editing (thread mode)",
+			map[string]any{
+				"chat_id":   msg.ChatID,
+				"thread_id": msg.ThreadID,
+			})
 	}
 
 	// Build message parameters
@@ -212,9 +231,22 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 			"error": err.Error(),
 		})
 		tgMsg.ParseMode = ""
+		logger.InfoCF("telegram", "Retrying send without HTML",
+			map[string]any{
+				"chat_id":   msg.ChatID,
+				"thread_id": msg.ThreadID,
+				"content":   utils.Truncate(msg.Content, 50),
+			})
 		_, err = c.bot.SendMessage(ctx, tgMsg)
 		return err
 	}
+
+	logger.InfoCF("telegram", "Message sent successfully",
+		map[string]any{
+			"chat_id":   msg.ChatID,
+			"thread_id": msg.ThreadID,
+			"content":   utils.Truncate(msg.Content, 50),
+		})
 
 	return nil
 }

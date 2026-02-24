@@ -283,7 +283,7 @@ func (m *Manager) dispatchOutbound(ctx context.Context) {
 				continue
 			}
 
-			logger.DebugCF("channels", "Dispatching outbound message",
+			logger.InfoCF("channels", "Dispatching outbound message",
 				map[string]any{
 					"channel":   msg.Channel,
 					"chat_id":   msg.ChatID,
