@@ -377,6 +377,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		}
 	} else {
 		// For DM and main chat, use simple SendChatAction
+		// Try both tu.ID() and direct int for maximum compatibility
 		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
 		if err != nil {
 			logger.ErrorCF("telegram", "Failed to send chat action (main chat)", map[string]any{
@@ -384,7 +385,9 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 			})
 		} else {
 			logger.InfoCF("telegram", "Typing indicator sent (main chat)", map[string]any{
-				"chat_id": chatID,
+				"chat_id":   chatID,
+				"tu.ID()":   tu.ID(chatID),
+				"chat_type": message.Chat.Type,
 			})
 		}
 	}
