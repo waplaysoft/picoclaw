@@ -353,7 +353,12 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 	}
 
 	// Always send typing indicator (works for both main chat and threads)
-	// Use simple SendChatAction for DM and main chat, SendChatActionParams for threads
+	logger.InfoCF("telegram", "Sending typing indicator", map[string]any{
+		"chat_id":   chatID,
+		"thread_id":  threadIDInt,
+		"is_thread":  threadIDInt != 0,
+	})
+
 	if threadIDInt != 0 {
 		// For threads, use SendChatActionParams with MessageThreadID
 		params := &telego.SendChatActionParams{
@@ -365,14 +370,18 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 			logger.ErrorCF("telegram", "Failed to send chat action (thread mode)", map[string]any{
 				"error": err.Error(),
 			})
+		} else {
+			logger.InfoCF("telegram", "Typing indicator sent (thread mode)")
 		}
 	} else {
 		// For DM and main chat, use simple SendChatAction
 		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
 		if err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action", map[string]any{
+			logger.ErrorCF("telegram", "Failed to send chat action (main chat)", map[string]any{
 				"error": err.Error(),
 			})
+		} else {
+			logger.InfoCF("telegram", "Typing indicator sent (main chat)")
 		}
 	}
 
