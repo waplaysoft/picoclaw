@@ -358,7 +358,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		params := &telego.SendChatActionParams{
 			ChatID:          tu.ID(chatID),
 			Action:          telego.ChatActionTyping,
-			MessageThreadID: &threadIDInt,
+			MessageThreadID: threadIDInt,
 		}
 		if err := c.bot.SendChatAction(ctx, params); err != nil {
 			logger.ErrorCF("telegram", "Failed to send chat action (thread mode)", map[string]any{
