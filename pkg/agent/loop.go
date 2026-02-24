@@ -416,6 +416,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 
 	// 1. Update tool contexts
 	al.updateToolContexts(agent, opts.Channel, opts.ChatID, opts.ThreadID)
+	al.updateSessionContexts(agent, opts.SessionKey)
 
 	// 2. Build messages (skip history for heartbeat)
 	var history []providers.Message
@@ -760,7 +761,7 @@ func (al *AgentLoop) runLLMIteration(
 
 // updateToolContexts updates the context for tools that need channel/chatID info.
 func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID, threadID string) {
-	// Use ContextualTool interface instead of type assertions
+	// Update ContextualTool implementations
 	if tool, ok := agent.Tools.Get("message"); ok {
 		if mt, ok := tool.(tools.ContextualTool); ok {
 			mt.SetContext(channel, chatID, threadID)
@@ -774,6 +775,16 @@ func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID, t
 	if tool, ok := agent.Tools.Get("subagent"); ok {
 		if st, ok := tool.(tools.ContextualTool); ok {
 			st.SetContext(channel, chatID, threadID)
+		}
+	}
+}
+
+// updateSessionContexts updates the session key for tools that need it.
+func (al *AgentLoop) updateSessionContexts(agent *AgentInstance, sessionKey string) {
+	// Update SessionAwareTool implementations
+	if tool, ok := agent.Tools.Get("session"); ok {
+		if st, ok := tool.(tools.SessionAwareTool); ok {
+			st.SetSessionKey(sessionKey)
 		}
 	}
 }

@@ -58,6 +58,11 @@ func NewAgentInstance(
 	sessionsDir := filepath.Join(workspace, "sessions")
 	sessionsManager := session.NewSessionManager(sessionsDir)
 
+	// Register session management tool
+	sessionTool := tools.NewSessionTool()
+	sessionTool.SetSessionManager(sessionsManager)
+	toolsRegistry.Register(sessionTool)
+
 	contextBuilder := NewContextBuilder(workspace)
 	contextBuilder.SetToolsRegistry(toolsRegistry)
 
