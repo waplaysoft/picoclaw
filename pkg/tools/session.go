@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
@@ -102,9 +103,7 @@ func (t *SessionTool) clearSession() *ToolResult {
 func estimateTokens(messages []providers.Message) int {
 	totalChars := 0
 	for _, m := range messages {
-		for _, r := range m.Content {
-			totalChars++
-		}
+		totalChars += utf8.RuneCountInString(m.Content)
 	}
 	// 2.5 chars per token = totalChars * 2 / 5
 	return totalChars * 2 / 5
