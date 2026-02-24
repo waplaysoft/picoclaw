@@ -341,7 +341,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		UserMessage:     msg.Content,
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
-		SendResponse:    true,
+		SendResponse:    false,
 	})
 }
 
@@ -714,24 +714,28 @@ func (al *AgentLoop) runLLMIteration(
 			)
 
 			// Send ForUser content to user immediately if not Silent
-			// NOTE: Disabled to prevent tool result spam in chat
-			// Tool results should only be visible to LLM, final response is enough for user
-			// Re-enable this if specific tools need to show progress/results to user
-			/*
+			// Only send if ForUser contains user-friendly content (not internal tool output)
 			if !toolResult.Silent && toolResult.ForUser != "" && opts.SendResponse {
-				al.bus.PublishOutbound(bus.OutboundMessage{
-					Channel: opts.Channel,
-					ChatID:  opts.ChatID,
-					ThreadID: opts.ThreadID,
-					Content: toolResult.ForUser,
-				})
-				logger.DebugCF("agent", "Sent tool result to user",
-					map[string]any{
-						"tool":        tc.Name,
-						"content_len": len(toolResult.ForUser),
+				// Don't send if ForUser looks like internal tool output (file content, code, etc.)
+				isInternalOutput := strings.Contains(toolResult.ForUser, "func(") ||
+					strings.Contains(toolResult.ForUser, "package ") ||
+					strings.Contains(toolResult.ForUser, "import ") ||
+					len(toolResult.ForUser) > 5000 // Large content is likely internal
+
+				if !isInternalOutput {
+					al.bus.PublishOutbound(bus.OutboundMessage{
+						Channel: opts.Channel,
+						ChatID:  opts.ChatID,
+						ThreadID: opts.ThreadID,
+						Content: toolResult.ForUser,
 					})
+					logger.DebugCF("agent", "Sent tool result to user",
+						map[string]any{
+							"tool":        tc.Name,
+							"content_len": len(toolResult.ForUser),
+						})
+				}
 			}
-			*/
 
 			// Determine content for LLM based on tool result
 			contentForLLM := toolResult.ForLLM
