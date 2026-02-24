@@ -353,25 +353,21 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 	}
 
 	// Always send typing indicator (works for both main chat and threads)
-	// For threads, we need to use SendChatActionParams with MessageThreadID
+	// Use SendChatActionParams for all cases to ensure consistency
+	params := &telego.SendChatActionParams{
+		ChatID: tu.ID(chatID),
+		Action: telego.ChatActionTyping,
+	}
+	// Add MessageThreadID only for forum topics
 	if threadIDInt != 0 {
-		params := &telego.SendChatActionParams{
-			ChatID:          tu.ID(chatID),
-			Action:          telego.ChatActionTyping,
-			MessageThreadID: threadIDInt,
-		}
-		if err := c.bot.SendChatAction(ctx, params); err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action (thread mode)", map[string]any{
-				"error": err.Error(),
-			})
-		}
-	} else {
-		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
-		if err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action (main chat)", map[string]any{
-				"error": err.Error(),
-			})
-		}
+		params.MessageThreadID = threadIDInt
+	}
+
+	if err := c.bot.SendChatAction(ctx, params); err != nil {
+		logger.ErrorCF("telegram", "Failed to send chat action", map[string]any{
+			"error":     err.Error(),
+			"thread_id": threadIDInt,
+		})
 	}
 
 	// Stop any previous thinking animation
