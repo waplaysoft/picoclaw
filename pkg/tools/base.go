@@ -86,3 +86,11 @@ func ToolToSchema(tool Tool) map[string]any {
 		},
 	}
 }
+
+
+// ContextWindowAwareTool is an optional interface that tools can implement
+// to receive context window size
+type ContextWindowAwareTool interface {
+	Tool
+	SetContextWindow(contextWindow int)
+}

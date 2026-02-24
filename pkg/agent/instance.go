@@ -58,10 +58,8 @@ func NewAgentInstance(
 	sessionsDir := filepath.Join(workspace, "sessions")
 	sessionsManager := session.NewSessionManager(sessionsDir)
 
-	// Register session management tool
-	sessionTool := tools.NewSessionTool()
-	sessionTool.SetSessionManager(sessionsManager)
-	toolsRegistry.Register(sessionTool)
+	// Note: sessionTool registration is deferred until after contextWindow is calculated
+	// It needs the contextWindow value for percentage calculation
 
 	contextBuilder := NewContextBuilder(workspace)
 	contextBuilder.SetToolsRegistry(toolsRegistry)
@@ -98,6 +96,12 @@ func NewAgentInstance(
 	if contextWindow == 0 {
 		contextWindow = maxTokens
 	}
+
+	// Register session management tool now that contextWindow is known
+	sessionTool := tools.NewSessionTool()
+	sessionTool.SetSessionManager(sessionsManager)
+	sessionTool.SetContextWindow(contextWindow)
+	toolsRegistry.Register(sessionTool)
 
 	// Resolve fallback candidates
 	modelCfg := providers.ModelConfig{

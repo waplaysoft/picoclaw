@@ -10,6 +10,7 @@ import (
 type SessionTool struct {
 	sessionManager SessionManager
 	sessionKey     string // Current session key, set by context
+	contextWindow  int    // Context window size for percentage calculation
 }
 
 // SessionManager defines the interface for session management.
@@ -52,10 +53,16 @@ func (t *SessionTool) SetSessionManager(sm SessionManager) {
 	t.sessionManager = sm
 }
 
-// SetContext sets the current session key.
+// SetSessionKey sets the current session key.
 // This should be called with the current session key before execution.
 func (t *SessionTool) SetSessionKey(sessionKey string) {
 	t.sessionKey = sessionKey
+}
+
+// SetContextWindow sets the context window size for percentage calculation.
+// This should be called after the agent instance is created.
+func (t *SessionTool) SetContextWindow(contextWindow int) {
+	t.contextWindow = contextWindow
 }
 
 func (t *SessionTool) Execute(ctx context.Context, args map[string]any) *ToolResult {
@@ -90,38 +97,47 @@ func (t *SessionTool) clearSession() *ToolResult {
 	}
 }
 
+// estimateTokens estimates the number of tokens in a message list.
+// Uses a safe heuristic of 2.5 characters per token to account for CJK and other overheads.
+func estimateTokens(messages []providers.Message) int {
+	totalChars := 0
+	for _, m := range messages {
+		for _, r := range m.Content {
+			totalChars++
+		}
+	}
+	// 2.5 chars per token = totalChars * 2 / 5
+	return totalChars * 2 / 5
+}
+
 func (t *SessionTool) sessionStats() *ToolResult {
 	// Get session history
 	history := t.sessionManager.GetHistory(t.sessionKey)
-	summary := t.sessionManager.GetSummary(t.sessionKey)
 
 	// Calculate stats
 	messageCount := len(history)
-	var userMsgs, assistantMsgs int
+	tokens := estimateTokens(history)
 
-	// Count message types
-	for _, msg := range history {
-		// providers.Message is a struct with Role field
-		switch msg.Role {
-		case "user":
-			userMsgs++
-		case "assistant":
-			assistantMsgs++
-		}
+	// Calculate context percentage
+	var contextPercent float64
+	var contextMax string
+	if t.contextWindow > 0 {
+		contextPercent = float64(tokens) / float64(t.contextWindow) * 100
+		contextMax = fmt.Sprintf(" / %d tokens", t.contextWindow)
 	}
 
 	// Build stats response
 	var stats string
 	if messageCount == 0 {
-		stats = "📊 **Session Stats**\n\n🆕 **New session** - No messages yet\n\n💬 Start a conversation to begin!"
+		stats = "📊 Session Stats\n\nMessages: 0\nTokens: 0 (est.)"
+		if t.contextWindow > 0 {
+			stats += fmt.Sprintf("\nContext: 0%% / %d tokens", t.contextWindow)
+		}
 	} else {
-		stats = fmt.Sprintf("📊 **Session Stats**\n\n📨 **Messages:** %d total\n   👤 User: %d\n   🤖 Assistant: %d\n\n📝 **Summary:**",
-			messageCount, userMsgs, assistantMsgs)
-
-		if summary != "" {
-			stats += fmt.Sprintf(" %s", summary)
-		} else {
-			stats += " No summary available"
+		stats = fmt.Sprintf("📊 Session Stats\n\nMessages: %d\nTokens: ~%d (est.)",
+			messageCount, tokens)
+		if t.contextWindow > 0 {
+			stats += fmt.Sprintf("\nContext: %.1f%%%s", contextPercent, contextMax)
 		}
 	}
 

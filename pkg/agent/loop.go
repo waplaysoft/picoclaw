@@ -787,6 +787,12 @@ func (al *AgentLoop) updateSessionContexts(agent *AgentInstance, sessionKey stri
 			st.SetSessionKey(sessionKey)
 		}
 	}
+	// Update ContextWindowAwareTool implementations
+	if tool, ok := agent.Tools.Get("session"); ok {
+		if ct, ok := tool.(tools.ContextWindowAwareTool); ok {
+			ct.SetContextWindow(agent.ContextWindow)
+		}
+	}
 }
 
 // maybeSummarize triggers summarization if the session history exceeds thresholds.
