@@ -374,27 +374,19 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		}
 	}
 
-	// Only show "Thinking..." placeholder in main chat, not in threads
-	// In threads, the typing indicator is enough
-	if threadIDInt == 0 {
-		// Stop any previous thinking animation
-		chatIDStr := fmt.Sprintf("%d", chatID)
-		if prevStop, ok := c.stopThinking.Load(chatIDStr); ok {
-			if cf, ok := prevStop.(*thinkingCancel); ok && cf != nil {
-				cf.Cancel()
-			}
-		}
-
-		// Create cancel function for thinking state
-		_, thinkCancel := context.WithTimeout(ctx, 5*time.Minute)
-		c.stopThinking.Store(chatIDStr, &thinkingCancel{fn: thinkCancel})
-
-		pMsg, err := c.bot.SendMessage(ctx, tu.Message(tu.ID(chatID), "Thinking... 💭"))
-		if err == nil {
-			pID := pMsg.MessageID
-			c.placeholders.Store(chatIDStr, pID)
+	// Stop any previous thinking animation
+	chatIDStr := fmt.Sprintf("%d", chatID)
+	if prevStop, ok := c.stopThinking.Load(chatIDStr); ok {
+		if cf, ok := prevStop.(*thinkingCancel); ok && cf != nil {
+			cf.Cancel()
 		}
 	}
+
+	// Create cancel function for thinking state
+	_, thinkCancel := context.WithTimeout(ctx, 5*time.Minute)
+	c.stopThinking.Store(chatIDStr, &thinkingCancel{fn: thinkCancel})
+
+	// Note: We don't send "Thinking..." placeholder anymore - native typing indicator is sufficient
 
 	peerKind := "direct"
 	peerID := fmt.Sprintf("%d", user.ID)
