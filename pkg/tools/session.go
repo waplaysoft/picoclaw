@@ -101,16 +101,12 @@ func (t *SessionTool) sessionStats() *ToolResult {
 
 	// Count message types
 	for _, msg := range history {
-		// Messages are expected to be struct with Role field
-		if msgMap, ok := msg.(map[string]interface{}); ok {
-			if role, ok := msgMap["role"].(string); ok {
-				switch role {
-				case "user":
-					userMsgs++
-				case "assistant":
-					assistantMsgs++
-				}
-			}
+		// providers.Message is a struct with Role field
+		switch msg.Role {
+		case "user":
+			userMsgs++
+		case "assistant":
+			assistantMsgs++
 		}
 	}
 
