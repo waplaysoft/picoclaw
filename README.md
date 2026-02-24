@@ -1160,6 +1160,41 @@ picoclaw agent -m "Hello"
 | `picoclaw cron list`      | List all scheduled jobs       |
 | `picoclaw cron add ...`   | Add a scheduled job           |
 
+### Session Management
+
+PicoClaw provides built-in session management through the `session` tool, accessible via commands:
+
+| Command | Description |
+|---------|-------------|
+| `/clear` | Clear the current session history and start a fresh conversation |
+| `/stats` | Display session statistics including message count, tokens, and context usage |
+
+**Session Stats Example:**
+
+```
+📊 Session Stats
+
+Messages: 42
+Tokens: ~8,400 (est.)
+Context: 4.2% / 200,000 tokens
+```
+
+**Key Metrics:**
+
+- **Messages**: Total number of messages in the current session
+- **Tokens**: Estimated token count using a 2.5 characters/token heuristic
+- **Context**: Percentage of the context window currently used (helps monitor when history compression will trigger)
+
+**Session Isolation:**
+
+Each conversation context has its own isolated session:
+- **Direct messages (DM)**: Isolated per user
+- **Group chats**: Shared session for the entire group
+- **Forum topics (Telegram)**: Each topic has its own session
+
+Running `/clear` in one session will not affect others.
+
+
 ### Scheduled Tasks / Reminders
 
 PicoClaw supports scheduled reminders and recurring tasks through the `cron` tool:
