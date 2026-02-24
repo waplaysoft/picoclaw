@@ -371,7 +371,9 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 				"error": err.Error(),
 			})
 		} else {
-			logger.InfoCF("telegram", "Typing indicator sent (thread mode)")
+			logger.InfoCF("telegram", "Typing indicator sent (thread mode)", map[string]any{
+				"chat_id": chatID,
+			})
 		}
 	} else {
 		// For DM and main chat, use simple SendChatAction
@@ -381,7 +383,9 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 				"error": err.Error(),
 			})
 		} else {
-			logger.InfoCF("telegram", "Typing indicator sent (main chat)")
+			logger.InfoCF("telegram", "Typing indicator sent (main chat)", map[string]any{
+				"chat_id": chatID,
+			})
 		}
 	}
 
