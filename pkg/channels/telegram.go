@@ -171,37 +171,18 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 	if msg.ThreadID == "" {
 		// Try to edit placeholder (only for messages without thread_id)
 		if pID, ok := c.placeholders.Load(msg.ChatID); ok {
-			logger.InfoCF("telegram", "Editing placeholder",
-				map[string]any{
-					"chat_id":   msg.ChatID,
-					"message_id": pID,
-				})
 			c.placeholders.Delete(msg.ChatID)
 			editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), htmlContent)
 			editMsg.ParseMode = telego.ModeHTML
 
 			if _, err = c.bot.EditMessageText(ctx, editMsg); err == nil {
-				logger.InfoCF("telegram", "Placeholder edited successfully",
-					map[string]any{
-						"chat_id":   msg.ChatID,
-						"message_id": pID,
-					})
 				return nil
 			}
-			logger.InfoCF("telegram", "Placeholder edit failed, falling back to new message",
-				map[string]any{
-					"chat_id": msg.ChatID,
-					"error":    err.Error(),
-				})
+			// Fallback to new message if edit fails
 		}
 	} else {
 		// Clear placeholder even if we're sending to thread
 		c.placeholders.Delete(msg.ChatID)
-		logger.InfoCF("telegram", "Skipping placeholder editing (thread mode)",
-			map[string]any{
-				"chat_id":   msg.ChatID,
-				"thread_id": msg.ThreadID,
-			})
 	}
 
 	// Build message parameters
@@ -209,20 +190,10 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 	tgMsg.ParseMode = telego.ModeHTML
 
 	// Add thread ID if specified
-	logger.DebugCF("telegram", "Preparing outbound message",
-		map[string]any{
-			"chat_id":   msg.ChatID,
-			"thread_id": msg.ThreadID,
-			"content":   utils.Truncate(msg.Content, 100),
-		})
 	if msg.ThreadID != "" {
 		var threadID int
 		if _, err := fmt.Sscanf(msg.ThreadID, "%d", &threadID); err == nil {
 			tgMsg.MessageThreadID = threadID
-			logger.InfoCF("telegram", "Setting MessageThreadID", map[string]any{
-				"thread_id": threadID,
-				"chat_id":   chatID,
-			})
 		}
 	}
 
@@ -231,22 +202,9 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 			"error": err.Error(),
 		})
 		tgMsg.ParseMode = ""
-		logger.InfoCF("telegram", "Retrying send without HTML",
-			map[string]any{
-				"chat_id":   msg.ChatID,
-				"thread_id": msg.ThreadID,
-				"content":   utils.Truncate(msg.Content, 50),
-			})
 		_, err = c.bot.SendMessage(ctx, tgMsg)
 		return err
 	}
-
-	logger.InfoCF("telegram", "Message sent successfully",
-		map[string]any{
-			"chat_id":   msg.ChatID,
-			"thread_id": msg.ThreadID,
-			"content":   utils.Truncate(msg.Content, 50),
-		})
 
 	return nil
 }
@@ -388,20 +346,23 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 
 	// Extract thread ID early
 	threadID := ""
+	threadIDInt := 0
 	if message.MessageThreadID != 0 {
 		threadID = fmt.Sprintf("%d", message.MessageThreadID)
+		threadIDInt = message.MessageThreadID
 	}
 
-	// Skip thinking indicator for forum threads (placeholder would be in main chat)
-	if message.MessageThreadID == 0 {
-		// Thinking indicator
-		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
-		if err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action", map[string]any{
-				"error": err.Error(),
-			})
-		}
+	// Always send typing indicator (works for both main chat and threads)
+	err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
+	if err != nil {
+		logger.ErrorCF("telegram", "Failed to send chat action", map[string]any{
+			"error": err.Error(),
+		})
+	}
 
+	// Only show "Thinking..." placeholder in main chat, not in threads
+	// In threads, the typing indicator is enough
+	if threadIDInt == 0 {
 		// Stop any previous thinking animation
 		chatIDStr := fmt.Sprintf("%d", chatID)
 		if prevStop, ok := c.stopThinking.Load(chatIDStr); ok {

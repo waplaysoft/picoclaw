@@ -15,7 +15,6 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/constants"
 	"github.com/sipeed/picoclaw/pkg/logger"
-	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
 type Manager struct {
@@ -282,14 +281,6 @@ func (m *Manager) dispatchOutbound(ctx context.Context) {
 			if !ok {
 				continue
 			}
-
-			logger.InfoCF("channels", "Dispatching outbound message",
-				map[string]any{
-					"channel":   msg.Channel,
-					"chat_id":   msg.ChatID,
-					"thread_id": msg.ThreadID,
-					"content":   utils.Truncate(msg.Content, 50),
-				})
 
 			// Silently skip internal channels
 			if constants.IsInternalChannel(msg.Channel) {
