@@ -282,6 +282,14 @@ func (m *Manager) dispatchOutbound(ctx context.Context) {
 				continue
 			}
 
+			logger.DebugCF("channels", "Dispatching outbound message",
+				map[string]any{
+					"channel":   msg.Channel,
+					"chat_id":   msg.ChatID,
+					"thread_id": msg.ThreadID,
+					"content":   utils.Truncate(msg.Content, 50),
+				})
+
 			// Silently skip internal channels
 			if constants.IsInternalChannel(msg.Channel) {
 				continue
