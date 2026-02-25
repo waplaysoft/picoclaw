@@ -57,6 +57,7 @@ type Config struct {
 	Tools     ToolsConfig     `json:"tools"`
 	Heartbeat HeartbeatConfig `json:"heartbeat"`
 	Devices   DevicesConfig   `json:"devices"`
+	Storage   StorageConfig   `json:"storage,omitempty"`
 }
 
 // MarshalJSON implements custom JSON marshaling for Config
@@ -312,6 +313,32 @@ type HeartbeatConfig struct {
 type DevicesConfig struct {
 	Enabled    bool `json:"enabled"     env:"PICOCLAW_DEVICES_ENABLED"`
 	MonitorUSB bool `json:"monitor_usb" env:"PICOCLAW_DEVICES_MONITOR_USB"`
+}
+
+// StorageConfig configures external storage backends like Qdrant for chat history
+type StorageConfig struct {
+	Qdrant    QdrantConfig    `json:"qdrant,omitempty"`
+	Embedding EmbeddingConfig `json:"embedding,omitempty"`
+}
+
+// QdrantConfig configures connection to Qdrant vector database
+type QdrantConfig struct {
+	Enabled       bool   `json:"enabled" env:"PICOCLAW_STORAGE_QDRANT_ENABLED"`
+	Host          string `json:"host" env:"PICOCLAW_STORAGE_QDRANT_HOST"`
+	Port          int    `json:"port" env:"PICOCLAW_STORAGE_QDRANT_PORT"`
+	APIKey        string `json:"api_key,omitempty" env:"PICOCLAW_STORAGE_QDRANT_API_KEY"`
+	GRPCPort      int    `json:"grpc_port,omitempty" env:"PICOCLAW_STORAGE_QDRANT_GRPC_PORT"`
+	Collection    string `json:"collection" env:"PICOCLAW_STORAGE_QDRANT_COLLECTION"`
+	VectorSize    int    `json:"vector_size" env:"PICOCLAW_STORAGE_QDRANT_VECTOR_SIZE"` // Dimension of embedding vectors
+	Secure        bool   `json:"secure" env:"PICOCLAW_STORAGE_QDRANT_SECURE"`          // Use HTTPS
+}
+
+// EmbeddingConfig configures embedding model for vector generation
+type EmbeddingConfig struct {
+	Enabled bool   `json:"enabled" env:"PICOCLAW_EMBEDDING_ENABLED"`
+	Model   string `json:"model" env:"PICOCLAW_EMBEDDING_MODEL"` // e.g., "mistral/mistral-embed"
+	APIBase string `json:"api_base" env:"PICOCLAW_EMBEDDING_API_BASE"`
+	APIKey  string `json:"api_key" env:"PICOCLAW_EMBEDDING_API_KEY"`
 }
 
 type ProvidersConfig struct {

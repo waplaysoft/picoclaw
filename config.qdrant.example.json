@@ -1,0 +1,34 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "~/.picoclaw/workspace",
+      "model": "gpt-4o"
+    }
+  },
+  "storage": {
+    "qdrant": {
+      "enabled": true,
+      "host": "qdb.wap17.site",
+      "port": 443,
+      "grpc_port": 6334,
+      "api_key": "your-qdrant-api-key",
+      "collection": "picoclaw_messages",
+      "vector_size": 1024,
+      "secure": true
+    }
+  },
+  "model_list": [
+    {
+      "model_name": "gpt-4o",
+      "model": "openai/gpt-4o",
+      "api_base": "https://api.openai.com/v1",
+      "api_key": "sk-xxx"
+    },
+    {
+      "model_name": "mistral-embed",
+      "model": "mistral/mistral-embed",
+      "api_base": "https://api.mistral.ai/v1",
+      "api_key": "your-mistral-api-key"
+    }
+  ]
+}
