@@ -117,6 +117,12 @@ func (sm *SessionManager) AddFullMessage(sessionKey string, msg providers.Messag
 			return
 		}
 
+		// Skip assistant messages with tool calls (intermediate reasoning steps)
+		// Only final assistant responses (without tool calls) should be stored
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			return
+		}
+
 		// Skip messages with empty content
 		if msg.Content == "" {
 			return
