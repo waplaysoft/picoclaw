@@ -56,6 +56,7 @@ type processOptions struct {
 	EnableSummary   bool   // Whether to trigger summarization
 	SendResponse    bool   // Whether to send response via bus
 	NoHistory       bool   // If true, don't load session history (for heartbeat)
+	SentContent     string // Content already sent via message tool (for session storage)
 }
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
@@ -438,7 +439,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 	agent.Sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
 
 	// 4. Run LLM iteration loop
-	finalContent, iteration, err := al.runLLMIteration(ctx, agent, messages, opts)
+	finalContent, sentContent, iteration, err := al.runLLMIteration(ctx, agent, messages, opts)
 	if err != nil {
 		return "", err
 	}
@@ -452,7 +453,13 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 	}
 
 	// 6. Save final assistant message to session
-	agent.Sessions.AddMessage(opts.SessionKey, "assistant", finalContent)
+	// If message tool was used, save the sent content instead of LLM's final response
+	// This ensures Qdrant stores what the user actually received
+	sessionContent := sentContent
+	if sessionContent == "" {
+		sessionContent = finalContent
+	}
+	agent.Sessions.AddMessage(opts.SessionKey, "assistant", sessionContent)
 	agent.Sessions.Save(opts.SessionKey)
 
 	// 7. Optional: summarization
@@ -491,14 +498,16 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 }
 
 // runLLMIteration executes the LLM call loop with tool handling.
+// Returns: finalContent, sentContent (via message tool), iteration count, error
 func (al *AgentLoop) runLLMIteration(
 	ctx context.Context,
 	agent *AgentInstance,
 	messages []providers.Message,
 	opts processOptions,
-) (string, int, error) {
+) (string, string, int, error) {
 	iteration := 0
 	var finalContent string
+	var sentContent string
 
 	for iteration < agent.MaxIterations {
 		iteration++
@@ -612,7 +621,7 @@ func (al *AgentLoop) runLLMIteration(
 					"iteration": iteration,
 					"error":     err.Error(),
 				})
-			return "", iteration, fmt.Errorf("LLM call failed after retries: %w", err)
+			return "", "", iteration, fmt.Errorf("LLM call failed after retries: %w", err)
 		}
 
 		// Check if no tool calls - we're done
@@ -714,6 +723,13 @@ func (al *AgentLoop) runLLMIteration(
 				asyncCallback,
 			)
 
+			// Track content sent via message tool for session storage
+			if tc.Name == "message" && toolResult.Err == nil {
+				if contentArg, ok := tc.Arguments["content"].(string); ok {
+					sentContent = contentArg
+				}
+			}
+
 			// Send ForUser content to user immediately if not Silent
 			// Only send if ForUser contains user-friendly content (not internal tool output)
 			if !toolResult.Silent && toolResult.ForUser != "" && opts.SendResponse {
@@ -756,7 +772,7 @@ func (al *AgentLoop) runLLMIteration(
 		}
 	}
 
-	return finalContent, iteration, nil
+	return finalContent, sentContent, iteration, nil
 }
 
 // updateToolContexts updates the context for tools that need channel/chatID info.
