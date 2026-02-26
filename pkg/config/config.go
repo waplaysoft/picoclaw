@@ -57,6 +57,7 @@ type Config struct {
 	Tools     ToolsConfig     `json:"tools"`
 	Heartbeat HeartbeatConfig `json:"heartbeat"`
 	Devices   DevicesConfig   `json:"devices"`
+	Storage   StorageConfig   `json:"storage,omitempty"`
 }
 
 // MarshalJSON implements custom JSON marshaling for Config
@@ -167,17 +168,25 @@ type SessionConfig struct {
 }
 
 type AgentDefaults struct {
-	Workspace           string   `json:"workspace"                       env:"PICOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
-	RestrictToWorkspace bool     `json:"restrict_to_workspace"           env:"PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
-	Provider            string   `json:"provider"                        env:"PICOCLAW_AGENTS_DEFAULTS_PROVIDER"`
-	ModelName           string   `json:"model_name,omitempty"            env:"PICOCLAW_AGENTS_DEFAULTS_MODEL_NAME"`
-	Model               string   `json:"model,omitempty"                 env:"PICOCLAW_AGENTS_DEFAULTS_MODEL"` // Deprecated: use model_name instead
-	ModelFallbacks      []string `json:"model_fallbacks,omitempty"`
-	ImageModel          string   `json:"image_model,omitempty"           env:"PICOCLAW_AGENTS_DEFAULTS_IMAGE_MODEL"`
-	ImageModelFallbacks []string `json:"image_model_fallbacks,omitempty"`
-	MaxTokens           int      `json:"max_tokens"                      env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
-	Temperature         *float64 `json:"temperature,omitempty"           env:"PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
-	MaxToolIterations   int      `json:"max_tool_iterations"             env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	Workspace           string         `json:"workspace"                       env:"PICOCLAW_AGENTS_DEFAULTS_WORKSPACE"`
+	RestrictToWorkspace bool           `json:"restrict_to_workspace"           env:"PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE"`
+	Provider            string         `json:"provider"                        env:"PICOCLAW_AGENTS_DEFAULTS_PROVIDER"`
+	ModelName           string         `json:"model_name,omitempty"            env:"PICOCLAW_AGENTS_DEFAULTS_MODEL_NAME"`
+	Model               string         `json:"model,omitempty"                 env:"PICOCLAW_AGENTS_DEFAULTS_MODEL"` // Deprecated: use model_name instead
+	ModelFallbacks      []string       `json:"model_fallbacks,omitempty"`
+	ImageModel          string         `json:"image_model,omitempty"           env:"PICOCLAW_AGENTS_DEFAULTS_IMAGE_MODEL"`
+	ImageModelFallbacks []string       `json:"image_model_fallbacks,omitempty"`
+	MaxTokens           int            `json:"max_tokens"                      env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOKENS"`
+	ContextWindow       int            `json:"context_window,omitempty"        env:"PICOCLAW_AGENTS_DEFAULTS_CONTEXT_WINDOW"`
+	Temperature         *float64       `json:"temperature,omitempty"           env:"PICOCLAW_AGENTS_DEFAULTS_TEMPERATURE"`
+	MaxToolIterations   int            `json:"max_tool_iterations"             env:"PICOCLAW_AGENTS_DEFAULTS_MAX_TOOL_ITERATIONS"`
+	Compaction          CompactionConfig `json:"compaction,omitempty"`
+}
+
+type CompactionConfig struct {
+	ReserveTokens      int `json:"reserve_tokens,omitempty"      env:"PICOCLAW_AGENTS_DEFAULTS_COMPACTION_RESERVE_TOKENS"`
+	ReserveTokensFloor int `json:"reserve_tokens_floor,omitempty" env:"PICOCLAW_AGENTS_DEFAULTS_COMPACTION_RESERVE_TOKENS_FLOOR"`
+	KeepRecentTokens   int `json:"keep_recent_tokens,omitempty"   env:"PICOCLAW_AGENTS_DEFAULTS_COMPACTION_KEEP_RECENT_TOKENS"`
 }
 
 // GetModelName returns the effective model name for the agent defaults.
@@ -314,6 +323,32 @@ type HeartbeatConfig struct {
 type DevicesConfig struct {
 	Enabled    bool `json:"enabled"     env:"PICOCLAW_DEVICES_ENABLED"`
 	MonitorUSB bool `json:"monitor_usb" env:"PICOCLAW_DEVICES_MONITOR_USB"`
+}
+
+// StorageConfig configures external storage backends like Qdrant for chat history
+type StorageConfig struct {
+	Qdrant    QdrantConfig    `json:"qdrant,omitempty"`
+	Embedding EmbeddingConfig `json:"embedding,omitempty"`
+}
+
+// QdrantConfig configures connection to Qdrant vector database
+type QdrantConfig struct {
+	Enabled       bool   `json:"enabled" env:"PICOCLAW_STORAGE_QDRANT_ENABLED"`
+	Host          string `json:"host" env:"PICOCLAW_STORAGE_QDRANT_HOST"`
+	Port          int    `json:"port" env:"PICOCLAW_STORAGE_QDRANT_PORT"`
+	APIKey        string `json:"api_key,omitempty" env:"PICOCLAW_STORAGE_QDRANT_API_KEY"`
+	GRPCPort      int    `json:"grpc_port,omitempty" env:"PICOCLAW_STORAGE_QDRANT_GRPC_PORT"`
+	Collection    string `json:"collection" env:"PICOCLAW_STORAGE_QDRANT_COLLECTION"`
+	VectorSize    int    `json:"vector_size" env:"PICOCLAW_STORAGE_QDRANT_VECTOR_SIZE"` // Dimension of embedding vectors
+	Secure        bool   `json:"secure" env:"PICOCLAW_STORAGE_QDRANT_SECURE"`          // Use HTTPS
+}
+
+// EmbeddingConfig configures embedding model for vector generation
+type EmbeddingConfig struct {
+	Enabled bool   `json:"enabled" env:"PICOCLAW_EMBEDDING_ENABLED"`
+	Model   string `json:"model" env:"PICOCLAW_EMBEDDING_MODEL"` // e.g., "mistral/mistral-embed"
+	APIBase string `json:"api_base" env:"PICOCLAW_EMBEDDING_API_BASE"`
+	APIKey  string `json:"api_key" env:"PICOCLAW_EMBEDDING_API_KEY"`
 }
 
 type ProvidersConfig struct {

@@ -170,7 +170,7 @@ After completing the task, provide a clear summary of what was done.`
 		Tools:         tools,
 		MaxIterations: maxIter,
 		LLMOptions:    llmOptions,
-	}, messages, task.OriginChannel, task.OriginChatID)
+	}, messages, task.OriginChannel, task.OriginChatID, "")
 
 	sm.mu.Lock()
 	var result *ToolResult
@@ -253,13 +253,15 @@ type SubagentTool struct {
 	manager       *SubagentManager
 	originChannel string
 	originChatID  string
+	originThreadID string
 }
 
 func NewSubagentTool(manager *SubagentManager) *SubagentTool {
 	return &SubagentTool{
-		manager:       manager,
-		originChannel: "cli",
-		originChatID:  "direct",
+		manager:        manager,
+		originChannel:  "cli",
+		originChatID:   "direct",
+		originThreadID: "",
 	}
 }
 
@@ -288,9 +290,10 @@ func (t *SubagentTool) Parameters() map[string]any {
 	}
 }
 
-func (t *SubagentTool) SetContext(channel, chatID string) {
+func (t *SubagentTool) SetContext(channel, chatID, threadID string) {
 	t.originChannel = channel
 	t.originChatID = chatID
+	t.originThreadID = threadID
 }
 
 func (t *SubagentTool) Execute(ctx context.Context, args map[string]any) *ToolResult {
@@ -345,7 +348,7 @@ func (t *SubagentTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 		Tools:         tools,
 		MaxIterations: maxIter,
 		LLMOptions:    llmOptions,
-	}, messages, t.originChannel, t.originChatID)
+	}, messages, t.originChannel, t.originChatID, "")
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("Subagent execution failed: %v", err)).WithError(err)
 	}

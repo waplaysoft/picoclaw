@@ -43,7 +43,7 @@ func BuildAgentMainSessionKey(agentID string) string {
 }
 
 // BuildAgentPeerSessionKey constructs a session key based on agent, channel, peer, and DM scope.
-func BuildAgentPeerSessionKey(params SessionKeyParams) string {
+func BuildAgentPeerSessionKey(params SessionKeyParams, threadID string) string {
 	agentID := NormalizeAgentID(params.AgentID)
 
 	peer := params.Peer
@@ -96,7 +96,14 @@ func BuildAgentPeerSessionKey(params SessionKeyParams) string {
 	if peerID == "" {
 		peerID = "unknown"
 	}
-	return fmt.Sprintf("agent:%s:%s:%s:%s", agentID, channel, peerKind, peerID)
+	baseKey := fmt.Sprintf("agent:%s:%s:%s:%s", agentID, channel, peerKind, peerID)
+
+	// Add thread ID for group threads (Telegram forum topics)
+	if threadID != "" && peerKind == "group" {
+		return fmt.Sprintf("%s:thread:%s", baseKey, threadID)
+	}
+
+	return baseKey
 }
 
 // ParseAgentSessionKey extracts agentId and rest from "agent:<agentId>:<rest>".

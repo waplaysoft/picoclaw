@@ -286,7 +286,7 @@ Talk to your picoclaw through Telegram, Discord, DingTalk, LINE, or WeCom
 
 | Channel      | Setup                              |
 | ------------ | ---------------------------------- |
-| **Telegram** | Easy (just a token)                |
+| **Telegram** | Easy (just a token) · Topics support ✅ |
 | **Discord**  | Easy (bot token + intents)         |
 | **QQ**       | Easy (AppID + AppSecret)           |
 | **DingTalk** | Medium (app credentials)           |
@@ -584,6 +584,56 @@ Connect Picoclaw to the Agent Social Network simply by sending a single message 
 
 Config file: `~/.picoclaw/config.json`
 
+## ⚙️ Configuration
+
+### Context Window Management (New)
+
+PicoClaw provides advanced context window management to balance memory usage and conversation quality.
+
+| Parameter                | Default              | Description                                          |
+| ------------------------ | --------------------- | ---------------------------------------------------- |
+| `context_window`       | Model default         | Maximum input context tokens                |
+| `max_tokens`           | Model default         | Maximum tokens in LLM response                |
+| `reserve_tokens_floor` | 20000                 | Min tokens to leave free after compression  |
+| `keep_recent_tokens`  | 20000                 | Tokens to keep after compression             |
+
+#### Compaction Behavior
+
+PicoClaw uses a smart token-based compaction strategy:
+
+- **Trigger**: When context reaches 85-90% of `context_window`
+- **Action**: Compress history and keep last `keep_recent_tokens` tokens
+- **Reserve**: Always leave at least `reserve_tokens_floor` tokens free
+
+This prevents aggressive compression and maintains longer conversation context compared to fixed message limits.
+
+**Example configuration:**
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": "glm-4.7",
+      "context_window": 200000,
+      "max_tokens": 4096,
+      "compaction": {
+        "reserve_tokens_floor": 20000,
+        "keep_recent_tokens": 20000
+      }
+    }
+  },
+  "model_list": [
+    {
+      "model_name": "glm-large",
+      "model": "zhipu/glm-4.7",
+      "api_key": "your-zhipu-key"
+    }
+  ]
+}
+```
+
+> **Note**: `context_window` and `max_tokens` are separate concepts. `context_window` controls input size, `max_tokens` controls output size. For models with large context windows (e.g., GLM-4.7 with 200k tokens), set `max_tokens` much lower (e.g., 4096) to reserve tokens for long inputs.
+
 ### Workspace Layout
 
 PicoClaw stores data in your configured workspace (default: `~/.picoclaw/workspace`):
@@ -775,6 +825,183 @@ The subagent has access to tools (message, web_search, etc.) and can communicate
 
 * `PICOCLAW_HEARTBEAT_ENABLED=false` to disable
 * `PICOCLAW_HEARTBEAT_INTERVAL=60` to change interval
+
+### 🗄️ Qdrant Vector Storage (New)
+
+PicoClaw supports **persistent message storage** in [Qdrant](https://qdrant.io/) vector database with semantic search capabilities. All chat messages are automatically embedded using Mistral AI and stored for long-term memory and context retrieval.
+
+#### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Vector Storage** | All messages stored in Qdrant with 1024-dimension embeddings |
+| **Semantic Search** | Find relevant messages using natural language queries via `qdrant_search_memory` tool |
+| **Mistral Embeddings** | Uses `mistral-embed` model for high-quality vector generation |
+| **Session Filtering** | Search within specific sessions or across all conversations |
+| **Time-based Filters** | Filter messages by timestamp range |
+| **Role Filtering** | Search only user messages or assistant responses |
+
+#### Quick Start
+
+**1. Start Qdrant** (local or use Qdrant Cloud):
+
+```bash
+docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+```
+
+**2. Get Mistral API Key** from [console.mistral.ai](https://console.mistral.ai/api-keys)
+
+**3. Configure PicoClaw** (`~/.picoclaw/config.json`):
+
+**Option A: Using `storage.embedding` (recommended, no duplication):**
+
+```json
+{
+  "storage": {
+    "qdrant": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 6333,
+      "collection": "picoclaw_messages",
+      "vector_size": 1024,
+      "secure": false,
+      "api_key": ""
+    },
+    "embedding": {
+      "enabled": true,
+      "model": "mistral-embed",
+      "api_base": "https://api.mistral.ai/v1",
+      "api_key": "your-mistral-api-key"
+    }
+  }
+}
+```
+
+**Option B: Using `model_list` (alternative):**
+
+```json
+{
+  "storage": {
+    "qdrant": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 6333,
+      "collection": "picoclaw_messages",
+      "vector_size": 1024,
+      "secure": false
+    }
+  },
+  "model_list": [
+    {
+      "model_name": "mistral-embed",
+      "model": "mistral/mistral-embed",
+      "api_base": "https://api.mistral.ai/v1",
+      "api_key": "your-mistral-api-key"
+    }
+  ]
+}
+```
+
+> **Note:** You can use either `storage.embedding` or `model_list` to configure the embedding API key. If both are provided, `model_list` takes precedence.
+
+#### Configuration Options
+
+##### Qdrant Settings
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Enable Qdrant storage |
+| `host` | `localhost` | Qdrant server hostname |
+| `port` | `6333` | HTTP port |
+| `grpc_port` | `6334` | gRPC port (optional) |
+| `collection` | `picoclaw_messages` | Collection name |
+| `vector_size` | `1024` | Embedding dimension (mistral-embed = 1024) |
+| `secure` | `false` | Use HTTPS |
+| `api_key` | `""` | API key for Qdrant Cloud |
+
+##### Embedding Settings
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Enable embedding generation |
+| `model` | `mistral-embed` | Embedding model |
+| `api_base` | `https://api.mistral.ai/v1` | Mistral API endpoint |
+| `api_key` | `""` | Mistral API key |
+
+#### Using the Search Tool
+
+The `qdrant_search_memory` tool is automatically available when Qdrant is enabled.
+
+**Example usage by agent:**
+
+```json
+{
+  "tool": "qdrant_search_memory",
+  "arguments": {
+    "query_text": "How did the user configure Docker?",
+    "limit": 5,
+    "filters": {
+      "role": "user",
+      "timestamp_from": "2024-01-01T00:00:00Z"
+    }
+  }
+}
+```
+
+**Parameters:**
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `query_text` | ✅ Yes | - | Natural language search query |
+| `limit` | ❌ No | 5 | Max results (max: 20) |
+| `filters.role` | ❌ No | - | Filter by role: `user`, `assistant`, `system` |
+| `filters.session_key` | ❌ No | - | Filter by session (e.g., `telegram:123456`) |
+| `filters.timestamp_from` | ❌ No | - | Messages from this date (ISO 8601) |
+| `filters.timestamp_to` | ❌ No | - | Messages until this date (ISO 8601) |
+
+#### Qdrant Cloud Configuration
+
+```json
+{
+  "storage": {
+    "qdrant": {
+      "enabled": true,
+      "host": "your-cluster-id.cloud.qdrant.io",
+      "port": 443,
+      "secure": true,
+      "api_key": "your-qdrant-cloud-api-key",
+      "collection": "picoclaw_messages",
+      "vector_size": 1024
+    },
+    "embedding": {
+      "enabled": true,
+      "model": "mistral-embed",
+      "api_base": "https://api.mistral.ai/v1",
+      "api_key": "your-mistral-api-key"
+    }
+  }
+}
+```
+
+#### Environment Variables
+
+```bash
+# Qdrant
+export PICOCLAW_STORAGE_QDRANT_ENABLED=true
+export PICOCLAW_STORAGE_QDRANT_HOST=localhost
+export PICOCLAW_STORAGE_QDRANT_PORT=6333
+export PICOCLAW_STORAGE_QDRANT_COLLECTION=picoclaw_messages
+export PICOCLAW_STORAGE_QDRANT_VECTOR_SIZE=1024
+export PICOCLAW_STORAGE_QDRANT_SECURE=false
+export PICOCLAW_STORAGE_QDRANT_API_KEY=your-qdrant-api-key
+
+# Embedding
+export PICOCLAW_EMBEDDING_API_KEY=your-mistral-api-key
+export PICOCLAW_EMBEDDING_MODEL=mistral-embed
+export PICOCLAW_EMBEDDING_API_BASE=https://api.mistral.ai/v1
+```
+
+> **Note**: Heartbeat messages (`session_key: heartbeat`), internal messages (`tool`, `system` roles), and messages with empty content are automatically excluded from storage to keep the database clean.
 
 ### Providers
 
@@ -1116,6 +1343,41 @@ picoclaw agent -m "Hello"
 | `picoclaw status`         | Show status                   |
 | `picoclaw cron list`      | List all scheduled jobs       |
 | `picoclaw cron add ...`   | Add a scheduled job           |
+
+### Session Management
+
+PicoClaw provides built-in session management through the `session` tool, accessible via commands:
+
+| Command | Description |
+|---------|-------------|
+| `/clear` | Clear the current session history and start a fresh conversation |
+| `/stats` | Display session statistics including message count, tokens, and context usage |
+
+**Session Stats Example:**
+
+```
+📊 Session Stats
+
+Messages: 42
+Tokens: ~8,400 (est.)
+Context: 4.2% / 200,000 tokens
+```
+
+**Key Metrics:**
+
+- **Messages**: Total number of messages in the current session
+- **Tokens**: Estimated token count using a 2.5 characters/token heuristic
+- **Context**: Percentage of the context window currently used (helps monitor when history compression will trigger)
+
+**Session Isolation:**
+
+Each conversation context has its own isolated session:
+- **Direct messages (DM)**: Isolated per user
+- **Group chats**: Shared session for the entire group
+- **Forum topics (Telegram)**: Each topic has its own session
+
+Running `/clear` in one session will not affect others.
+
 
 ### Scheduled Tasks / Reminders
 

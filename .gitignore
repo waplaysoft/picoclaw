@@ -11,6 +11,8 @@ build/
 /picoclaw
 /picoclaw-test
 cmd/**/workspace
+cmd/picoclaw/picoclaw
+cmd/picoclaw/workspace
 
 # Picoclaw specific
 

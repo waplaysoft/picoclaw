@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/routing"
 	"github.com/sipeed/picoclaw/pkg/session"
+	"github.com/sipeed/picoclaw/pkg/storage"
 	"github.com/sipeed/picoclaw/pkg/tools"
 )
 
@@ -56,7 +58,10 @@ func NewAgentInstance(
 	toolsRegistry.Register(tools.NewAppendFileTool(workspace, restrict))
 
 	sessionsDir := filepath.Join(workspace, "sessions")
-	sessionsManager := session.NewSessionManager(sessionsDir)
+	sessionsManager := session.NewSessionManagerWithConfig(sessionsDir, cfg.Storage)
+
+	// Note: sessionTool registration is deferred until after contextWindow is calculated
+	// It needs the contextWindow value for percentage calculation
 
 	contextBuilder := NewContextBuilder(workspace)
 
@@ -87,6 +92,55 @@ func NewAgentInstance(
 		temperature = *defaults.Temperature
 	}
 
+	// Resolve ContextWindow: use from config if set, otherwise use maxTokens as fallback
+	contextWindow := defaults.ContextWindow
+	if contextWindow == 0 {
+		contextWindow = maxTokens
+	}
+
+	// Register session management tool now that contextWindow is known
+	sessionTool := tools.NewSessionTool()
+	sessionTool.SetSessionManager(sessionsManager)
+	sessionTool.SetContextWindow(contextWindow)
+	toolsRegistry.Register(sessionTool)
+
+	// Register Qdrant search tool if storage is enabled
+	if cfg.Storage.Qdrant.Enabled {
+		// Find Mistral API key from model_list for embeddings
+		var mistralAPIKey string
+		for _, modelCfg := range cfg.ModelList {
+			if modelCfg.ModelName == "mistral-embed" || 
+			   (modelCfg.Model != "" && strings.Contains(modelCfg.Model, "mistral-embed")) {
+				mistralAPIKey = modelCfg.APIKey
+				break
+			}
+		}
+
+		// Set the embedding API key in storage config
+		storageCfg := cfg.Storage
+		if mistralAPIKey != "" {
+			storageCfg.Embedding.APIKey = mistralAPIKey
+			storageCfg.Embedding.APIBase = "https://api.mistral.ai/v1"
+			storageCfg.Embedding.Model = "mistral-embed"
+			storageCfg.Embedding.Enabled = true
+		}
+
+		// Create message store for the tool
+		messageStore, err := storage.NewMessageStore(storageCfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[Qdrant] Failed to create message store: %v\n", err)
+		} else if messageStore.IsEnabled() {
+			fmt.Fprintf(os.Stderr, "[Qdrant] Enabled (collection: %s)\n", cfg.Storage.Qdrant.Collection)
+			// Warn only if no API key found in either storage.embedding or model_list
+			if storageCfg.Embedding.APIKey == "" {
+				fmt.Fprintf(os.Stderr, "[Qdrant] WARNING: No Mistral API key found. Add to storage.embedding.api_key or model_list with mistral-embed.\n")
+			}
+			qdrantTool := tools.NewQdrantSearchTool(messageStore)
+			qdrantTool.SetSessionKey("") // Will be set per-request
+			toolsRegistry.Register(qdrantTool)
+		}
+	}
+
 	// Resolve fallback candidates
 	modelCfg := providers.ModelConfig{
 		Primary:   model,
@@ -103,7 +157,7 @@ func NewAgentInstance(
 		MaxIterations:  maxIter,
 		MaxTokens:      maxTokens,
 		Temperature:    temperature,
-		ContextWindow:  maxTokens,
+		ContextWindow:  contextWindow,
 		Provider:       provider,
 		Sessions:       sessionsManager,
 		ContextBuilder: contextBuilder,

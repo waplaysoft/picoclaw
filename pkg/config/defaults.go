@@ -321,5 +321,22 @@ func DefaultConfig() *Config {
 			Enabled:    false,
 			MonitorUSB: true,
 		},
+		Storage: StorageConfig{
+			Qdrant: QdrantConfig{
+				Enabled:    false,
+				Host:       "localhost",
+				Port:       6333,
+				GRPCPort:   6334,
+				Collection: "picoclaw_messages",
+				VectorSize: 1024, // mistral-embed dimension
+				Secure:     false,
+			},
+			Embedding: EmbeddingConfig{
+				Enabled: false,
+				Model:   "mistral-embed",
+				APIBase: "https://api.mistral.ai/v1",
+				APIKey:  "",
+			},
+		},
 	}
 }

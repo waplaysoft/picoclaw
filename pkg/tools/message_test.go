@@ -8,10 +8,10 @@ import (
 
 func TestMessageTool_Execute_Success(t *testing.T) {
 	tool := NewMessageTool()
-	tool.SetContext("test-channel", "test-chat-id")
+	tool.SetContext("test-channel", "test-chat-id", "")
 
 	var sentChannel, sentChatID, sentContent string
-	tool.SetSendCallback(func(channel, chatID, content string) error {
+	tool.SetSendCallback(func(channel, chatID, content, threadID string) error {
 		sentChannel = channel
 		sentChatID = chatID
 		sentContent = content
@@ -43,8 +43,8 @@ func TestMessageTool_Execute_Success(t *testing.T) {
 	}
 
 	// - ForLLM contains send status description
-	if result.ForLLM != "Message sent to test-channel:test-chat-id" {
-		t.Errorf("Expected ForLLM 'Message sent to test-channel:test-chat-id', got '%s'", result.ForLLM)
+	if result.ForLLM != "Message sent to test-channel:test-chat-id (thread: )" {
+		t.Errorf("Expected ForLLM 'Message sent to test-channel:test-chat-id (thread: )', got '%s'", result.ForLLM)
 	}
 
 	// - ForUser is empty (user already received message directly)
@@ -60,10 +60,10 @@ func TestMessageTool_Execute_Success(t *testing.T) {
 
 func TestMessageTool_Execute_WithCustomChannel(t *testing.T) {
 	tool := NewMessageTool()
-	tool.SetContext("default-channel", "default-chat-id")
+	tool.SetContext("default-channel", "default-chat-id", "")
 
 	var sentChannel, sentChatID string
-	tool.SetSendCallback(func(channel, chatID, content string) error {
+	tool.SetSendCallback(func(channel, chatID, content, threadID string) error {
 		sentChannel = channel
 		sentChatID = chatID
 		return nil
@@ -89,17 +89,17 @@ func TestMessageTool_Execute_WithCustomChannel(t *testing.T) {
 	if !result.Silent {
 		t.Error("Expected Silent=true")
 	}
-	if result.ForLLM != "Message sent to custom-channel:custom-chat-id" {
-		t.Errorf("Expected ForLLM 'Message sent to custom-channel:custom-chat-id', got '%s'", result.ForLLM)
+	if result.ForLLM != "Message sent to custom-channel:custom-chat-id (thread: )" {
+		t.Errorf("Expected ForLLM 'Message sent to custom-channel:custom-chat-id (thread: )', got '%s'", result.ForLLM)
 	}
 }
 
 func TestMessageTool_Execute_SendFailure(t *testing.T) {
 	tool := NewMessageTool()
-	tool.SetContext("test-channel", "test-chat-id")
+	tool.SetContext("test-channel", "test-chat-id", "")
 
 	sendErr := errors.New("network error")
-	tool.SetSendCallback(func(channel, chatID, content string) error {
+	tool.SetSendCallback(func(channel, chatID, content, threadID string) error {
 		return sendErr
 	})
 
@@ -133,7 +133,7 @@ func TestMessageTool_Execute_SendFailure(t *testing.T) {
 
 func TestMessageTool_Execute_MissingContent(t *testing.T) {
 	tool := NewMessageTool()
-	tool.SetContext("test-channel", "test-chat-id")
+	tool.SetContext("test-channel", "test-chat-id", "")
 
 	ctx := context.Background()
 	args := map[string]any{} // content missing
@@ -153,7 +153,7 @@ func TestMessageTool_Execute_NoTargetChannel(t *testing.T) {
 	tool := NewMessageTool()
 	// No SetContext called, so defaultChannel and defaultChatID are empty
 
-	tool.SetSendCallback(func(channel, chatID, content string) error {
+	tool.SetSendCallback(func(channel, chatID, content, threadID string) error {
 		return nil
 	})
 
@@ -175,7 +175,7 @@ func TestMessageTool_Execute_NoTargetChannel(t *testing.T) {
 
 func TestMessageTool_Execute_NotConfigured(t *testing.T) {
 	tool := NewMessageTool()
-	tool.SetContext("test-channel", "test-chat-id")
+	tool.SetContext("test-channel", "test-chat-id", "")
 	// No SetSendCallback called
 
 	ctx := context.Background()

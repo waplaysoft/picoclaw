@@ -24,7 +24,7 @@ func TestBuildAgentPeerSessionKey_DMScopeMain(t *testing.T) {
 		Channel: "telegram",
 		Peer:    &RoutePeer{Kind: "direct", ID: "user123"},
 		DMScope: DMScopeMain,
-	})
+	}, "")
 	want := "agent:main:main"
 	if got != want {
 		t.Errorf("DMScopeMain = %q, want %q", got, want)
@@ -37,7 +37,7 @@ func TestBuildAgentPeerSessionKey_DMScopePerPeer(t *testing.T) {
 		Channel: "telegram",
 		Peer:    &RoutePeer{Kind: "direct", ID: "user123"},
 		DMScope: DMScopePerPeer,
-	})
+	}, "")
 	want := "agent:main:direct:user123"
 	if got != want {
 		t.Errorf("DMScopePerPeer = %q, want %q", got, want)
@@ -50,7 +50,7 @@ func TestBuildAgentPeerSessionKey_DMScopePerChannelPeer(t *testing.T) {
 		Channel: "telegram",
 		Peer:    &RoutePeer{Kind: "direct", ID: "user123"},
 		DMScope: DMScopePerChannelPeer,
-	})
+	}, "")
 	want := "agent:main:telegram:direct:user123"
 	if got != want {
 		t.Errorf("DMScopePerChannelPeer = %q, want %q", got, want)
@@ -64,7 +64,7 @@ func TestBuildAgentPeerSessionKey_DMScopePerAccountChannelPeer(t *testing.T) {
 		AccountID: "bot1",
 		Peer:      &RoutePeer{Kind: "direct", ID: "User123"},
 		DMScope:   DMScopePerAccountChannelPeer,
-	})
+	}, "")
 	want := "agent:main:telegram:bot1:direct:user123"
 	if got != want {
 		t.Errorf("DMScopePerAccountChannelPeer = %q, want %q", got, want)
@@ -77,7 +77,7 @@ func TestBuildAgentPeerSessionKey_GroupPeer(t *testing.T) {
 		Channel: "telegram",
 		Peer:    &RoutePeer{Kind: "group", ID: "chat456"},
 		DMScope: DMScopePerPeer,
-	})
+	}, "")
 	want := "agent:main:telegram:group:chat456"
 	if got != want {
 		t.Errorf("GroupPeer = %q, want %q", got, want)
@@ -90,7 +90,7 @@ func TestBuildAgentPeerSessionKey_NilPeer(t *testing.T) {
 		Channel: "telegram",
 		Peer:    nil,
 		DMScope: DMScopePerPeer,
-	})
+	}, "")
 	// nil peer defaults to direct with empty ID, falls to main
 	want := "agent:main:main"
 	if got != want {
@@ -108,7 +108,7 @@ func TestBuildAgentPeerSessionKey_IdentityLink(t *testing.T) {
 		Peer:          &RoutePeer{Kind: "direct", ID: "user123"},
 		DMScope:       DMScopePerPeer,
 		IdentityLinks: links,
-	})
+	}, "")
 	want := "agent:main:direct:john"
 	if got != want {
 		t.Errorf("IdentityLink = %q, want %q", got, want)

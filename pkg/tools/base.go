@@ -11,10 +11,17 @@ type Tool interface {
 }
 
 // ContextualTool is an optional interface that tools can implement
-// to receive the current message context (channel, chatID)
+// to receive current message context (channel, chatID, threadID)
 type ContextualTool interface {
 	Tool
-	SetContext(channel, chatID string)
+	SetContext(channel, chatID, threadID string)
+}
+
+// SessionAwareTool is an optional interface that tools can implement
+// to receive the current session key
+type SessionAwareTool interface {
+	Tool
+	SetSessionKey(sessionKey string)
 }
 
 // AsyncCallback is a function type that async tools use to notify completion.
@@ -41,7 +48,7 @@ type AsyncCallback func(ctx context.Context, result *ToolResult)
 // asynchronous execution with completion callbacks.
 //
 // Async tools return immediately with an AsyncResult, then notify completion
-// via the callback set by SetCallback.
+// via callback set by SetCallback.
 //
 // This is useful for:
 // - Long-running operations that shouldn't block the agent loop
@@ -64,7 +71,7 @@ type AsyncCallback func(ctx context.Context, result *ToolResult)
 //	}
 type AsyncTool interface {
 	Tool
-	// SetCallback registers a callback function to be invoked when the async operation completes.
+	// SetCallback registers a callback function to be invoked when async operation completes.
 	// The callback will be called from a goroutine and should handle thread-safety if needed.
 	SetCallback(cb AsyncCallback)
 }
@@ -75,7 +82,15 @@ func ToolToSchema(tool Tool) map[string]any {
 		"function": map[string]any{
 			"name":        tool.Name(),
 			"description": tool.Description(),
-			"parameters":  tool.Parameters(),
+			"parameters": tool.Parameters(),
 		},
 	}
+}
+
+
+// ContextWindowAwareTool is an optional interface that tools can implement
+// to receive context window size
+type ContextWindowAwareTool interface {
+	Tool
+	SetContextWindow(contextWindow int)
 }

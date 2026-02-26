@@ -27,13 +27,15 @@ func (m *mockRegistryTool) Execute(_ context.Context, _ map[string]any) *ToolRes
 
 type mockCtxTool struct {
 	mockRegistryTool
-	channel string
-	chatID  string
+	channel  string
+	chatID   string
+	threadID string
 }
 
-func (m *mockCtxTool) SetContext(channel, chatID string) {
+func (m *mockCtxTool) SetContext(channel, chatID, threadID string) {
 	m.channel = channel
 	m.chatID = chatID
+	m.threadID = threadID
 }
 
 type mockAsyncRegistryTool struct {
@@ -143,13 +145,16 @@ func TestToolRegistry_ExecuteWithContext_ContextualTool(t *testing.T) {
 	}
 	r.Register(ct)
 
-	r.ExecuteWithContext(context.Background(), "ctx_tool", nil, "telegram", "chat-42", nil)
+	r.ExecuteWithContext(context.Background(), "ctx_tool", nil, "telegram", "chat-42", "topic-123", nil)
 
 	if ct.channel != "telegram" {
 		t.Errorf("expected channel 'telegram', got %q", ct.channel)
 	}
 	if ct.chatID != "chat-42" {
 		t.Errorf("expected chatID 'chat-42', got %q", ct.chatID)
+	}
+	if ct.threadID != "topic-123" {
+		t.Errorf("expected threadID 'topic-123', got %q", ct.threadID)
 	}
 }
 
@@ -160,10 +165,10 @@ func TestToolRegistry_ExecuteWithContext_SkipsEmptyContext(t *testing.T) {
 	}
 	r.Register(ct)
 
-	r.ExecuteWithContext(context.Background(), "ctx_tool", nil, "", "", nil)
+	r.ExecuteWithContext(context.Background(), "ctx_tool", nil, "", "", "", nil)
 
-	if ct.channel != "" || ct.chatID != "" {
-		t.Error("SetContext should not be called with empty channel/chatID")
+	if ct.channel != "" || ct.chatID != "" || ct.threadID != "" {
+		t.Error("SetContext should not be called with empty channel/chatID/threadID")
 	}
 }
 
@@ -178,7 +183,7 @@ func TestToolRegistry_ExecuteWithContext_AsyncCallback(t *testing.T) {
 	called := false
 	cb := func(_ context.Context, _ *ToolResult) { called = true }
 
-	result := r.ExecuteWithContext(context.Background(), "async_tool", nil, "", "", cb)
+	result := r.ExecuteWithContext(context.Background(), "async_tool", nil, "", "", "", cb)
 	if at.cb == nil {
 		t.Error("expected SetCallback to have been called")
 	}

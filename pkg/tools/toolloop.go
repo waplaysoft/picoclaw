@@ -37,7 +37,7 @@ func RunToolLoop(
 	ctx context.Context,
 	config ToolLoopConfig,
 	messages []providers.Message,
-	channel, chatID string,
+	channel, chatID, threadID string,
 ) (*ToolLoopResult, error) {
 	iteration := 0
 	var finalContent string
@@ -134,7 +134,7 @@ func RunToolLoop(
 			// Execute tool (no async callback for subagents - they run independently)
 			var toolResult *ToolResult
 			if config.Tools != nil {
-				toolResult = config.Tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, channel, chatID, nil)
+				toolResult = config.Tools.ExecuteWithContext(ctx, tc.Name, tc.Arguments, channel, chatID, threadID, nil)
 			} else {
 				toolResult = ErrorResult("No tools available")
 			}

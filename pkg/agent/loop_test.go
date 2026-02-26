@@ -413,7 +413,7 @@ func (m *mockContextualTool) Execute(ctx context.Context, args map[string]any) *
 	return tools.SilentResult("Contextual tool executed")
 }
 
-func (m *mockContextualTool) SetContext(channel, chatID string) {
+func (m *mockContextualTool) SetContext(channel, chatID, threadID string) {
 	m.lastChannel = channel
 	m.lastChatID = chatID
 }

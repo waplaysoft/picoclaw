@@ -5,12 +5,13 @@ import (
 	"fmt"
 )
 
-type SendCallback func(channel, chatID, content string) error
+type SendCallback func(channel, chatID, content, threadID string) error
 
 type MessageTool struct {
 	sendCallback   SendCallback
 	defaultChannel string
 	defaultChatID  string
+	defaultThreadID string
 	sentInRound    bool // Tracks whether a message was sent in the current processing round
 }
 
@@ -42,18 +43,23 @@ func (t *MessageTool) Parameters() map[string]any {
 				"type":        "string",
 				"description": "Optional: target chat/user ID",
 			},
+			"thread_id": map[string]any{
+				"type":        "string",
+				"description": "Optional: thread ID for forum topics (Telegram, Discord, etc.)",
+			},
 		},
 		"required": []string{"content"},
 	}
 }
 
-func (t *MessageTool) SetContext(channel, chatID string) {
+func (t *MessageTool) SetContext(channel, chatID, threadID string) {
 	t.defaultChannel = channel
 	t.defaultChatID = chatID
+	t.defaultThreadID = threadID
 	t.sentInRound = false // Reset send tracking for new processing round
 }
 
-// HasSentInRound returns true if the message tool sent a message during the current round.
+// HasSentInRound returns true if message tool sent a message during current round.
 func (t *MessageTool) HasSentInRound() bool {
 	return t.sentInRound
 }
@@ -70,12 +76,16 @@ func (t *MessageTool) Execute(ctx context.Context, args map[string]any) *ToolRes
 
 	channel, _ := args["channel"].(string)
 	chatID, _ := args["chat_id"].(string)
+	threadID, _ := args["thread_id"].(string)
 
 	if channel == "" {
 		channel = t.defaultChannel
 	}
 	if chatID == "" {
 		chatID = t.defaultChatID
+	}
+	if threadID == "" {
+		threadID = t.defaultThreadID
 	}
 
 	if channel == "" || chatID == "" {
@@ -86,18 +96,18 @@ func (t *MessageTool) Execute(ctx context.Context, args map[string]any) *ToolRes
 		return &ToolResult{ForLLM: "Message sending not configured", IsError: true}
 	}
 
-	if err := t.sendCallback(channel, chatID, content); err != nil {
+	if err := t.sendCallback(channel, chatID, content, threadID); err != nil {
 		return &ToolResult{
-			ForLLM:  fmt.Sprintf("sending message: %v", err),
+			ForLLM: fmt.Sprintf("sending message: %v", err),
 			IsError: true,
 			Err:     err,
 		}
 	}
 
 	t.sentInRound = true
-	// Silent: user already received the message directly
+	// Silent: user already received message directly
 	return &ToolResult{
-		ForLLM: fmt.Sprintf("Message sent to %s:%s", channel, chatID),
+		ForLLM: fmt.Sprintf("Message sent to %s:%s (thread: %s)", channel, chatID, threadID),
 		Silent: true,
 	}
 }

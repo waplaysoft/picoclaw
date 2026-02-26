@@ -2,13 +2,16 @@ package session
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/providers"
+	"github.com/sipeed/picoclaw/pkg/storage"
 )
 
 type Session struct {
@@ -20,20 +23,37 @@ type Session struct {
 }
 
 type SessionManager struct {
-	sessions map[string]*Session
-	mu       sync.RWMutex
-	storage  string
+	sessions     map[string]*Session
+	mu           sync.RWMutex
+	storage      string
+	messageStore *storage.MessageStore
 }
 
-func NewSessionManager(storage string) *SessionManager {
+func NewSessionManager(storagePath string) *SessionManager {
+	return NewSessionManagerWithConfig(storagePath, config.StorageConfig{})
+}
+
+// NewSessionManagerWithConfig creates a new SessionManager with the given storage configuration
+func NewSessionManagerWithConfig(storagePath string, storageCfg config.StorageConfig) *SessionManager {
 	sm := &SessionManager{
 		sessions: make(map[string]*Session),
-		storage:  storage,
+		storage:  storagePath,
 	}
 
-	if storage != "" {
-		os.MkdirAll(storage, 0o755)
+	if storagePath != "" {
+		os.MkdirAll(storagePath, 0o755)
 		sm.loadSessions()
+	}
+
+	// Initialize message store if Qdrant is configured
+	if storageCfg.Qdrant.Enabled {
+		var err error
+		sm.messageStore, err = storage.NewMessageStore(storageCfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[Qdrant] Failed to create message store in SessionManager: %v\n", err)
+		} else if sm.messageStore.IsEnabled() {
+			fmt.Fprintf(os.Stderr, "[Qdrant] SessionManager initialized (collection: %s)\n", storageCfg.Qdrant.Collection)
+		}
 	}
 
 	return sm
@@ -84,6 +104,39 @@ func (sm *SessionManager) AddFullMessage(sessionKey string, msg providers.Messag
 
 	session.Messages = append(session.Messages, msg)
 	session.Updated = time.Now()
+
+	// Also store in Qdrant if enabled
+	if sm.messageStore != nil && sm.messageStore.IsEnabled() {
+		// Skip heartbeat messages
+		if sessionKey == "heartbeat" {
+			return
+		}
+
+		// Skip tool and system messages (internal agent messages)
+		if msg.Role == "tool" || msg.Role == "system" {
+			return
+		}
+
+		// Skip assistant messages with tool calls (intermediate reasoning steps)
+		// Only final assistant responses (without tool calls) should be stored
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			return
+		}
+
+		// Skip messages with empty content
+		if msg.Content == "" {
+			return
+		}
+
+		// Unlock before calling external store to avoid holding lock during I/O
+		sm.mu.Unlock()
+		defer sm.mu.Lock()
+
+		index := len(session.Messages) - 1
+		if err := sm.messageStore.StoreMessage(sessionKey, msg, index); err != nil {
+			fmt.Fprintf(os.Stderr, "[Qdrant] Failed to store message: %v\n", err)
+		}
+	}
 }
 
 func (sm *SessionManager) GetHistory(key string) []providers.Message {
@@ -279,4 +332,14 @@ func (sm *SessionManager) SetHistory(key string, history []providers.Message) {
 		session.Messages = msgs
 		session.Updated = time.Now()
 	}
+}
+
+// SearchSimilarMessages searches for messages similar to the query using vector search.
+// Returns messages from Qdrant if enabled, otherwise returns empty slice.
+func (sm *SessionManager) SearchSimilarMessages(sessionKey, query string, limit int) ([]providers.Message, error) {
+	if sm.messageStore == nil || !sm.messageStore.IsEnabled() {
+		return []providers.Message{}, nil
+	}
+
+	return sm.messageStore.SearchSimilarMessages(sessionKey, query, limit)
 }
