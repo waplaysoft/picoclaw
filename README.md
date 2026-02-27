@@ -3,8 +3,6 @@
 
   <h1>PicoClaw Fork</h1>
 
-
-
 </div>
 
 ---
