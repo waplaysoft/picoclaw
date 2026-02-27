@@ -1,149 +1,29 @@
 <div align="center">
   <img src="assets/logo.jpg" alt="PicoClaw" width="512">
 
-  <h1>PicoClaw: Ultra-Efficient AI Assistant in Go</h1>
+  <h1>PicoClaw Fork</h1>
 
-  <h3>$10 Hardware · 10MB RAM · 1s Boot · 皮皮虾，我们走！</h3>
 
-  <p>
-    <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
-    <img src="https://img.shields.io/badge/Arch-x86__64%2C%20ARM64%2C%20RISC--V-blue" alt="Hardware">
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <br>
-    <a href="https://picoclaw.io"><img src="https://img.shields.io/badge/Website-picoclaw.io-blue?style=flat&logo=google-chrome&logoColor=white" alt="Website"></a>
-    <a href="https://x.com/SipeedIO"><img src="https://img.shields.io/badge/X_(Twitter)-SipeedIO-black?style=flat&logo=x&logoColor=white" alt="Twitter"></a>
-    <br>
-    <a href="./assets/wechat.png"><img src="https://img.shields.io/badge/WeChat-Group-41d56b?style=flat&logo=wechat&logoColor=white"></a>
-    <a href="https://discord.gg/V4sAZ9XWpN"><img src="https://img.shields.io/badge/Discord-Community-4c60eb?style=flat&logo=discord&logoColor=white" alt="Discord"></a>
-  </p>
-
-[中文](README.zh.md) | [日本語](README.ja.md) | [Português](README.pt-br.md) | [Tiếng Việt](README.vi.md) | [Français](README.fr.md) | **English**
 
 </div>
 
 ---
 
-🦐 PicoClaw is an ultra-lightweight personal AI Assistant inspired by [nanobot](https://github.com/HKUDS/nanobot), refactored from the ground up in Go through a self-bootstrapping process, where the AI agent itself drove the entire architectural migration and code optimization.
+⚡️ Original repo [picoclaw](https://github.com/sipeed/picoclaw).
 
-⚡️ Runs on $10 hardware with <10MB RAM: That's 99% less memory than OpenClaw and 98% cheaper than a Mac mini!
+## ✨ New Features
 
-<table align="center">
-  <tr align="center">
-    <td align="center" valign="top">
-      <p align="center">
-        <img src="assets/picoclaw_mem.gif" width="360" height="240">
-      </p>
-    </td>
-    <td align="center" valign="top">
-      <p align="center">
-        <img src="assets/licheervnano.png" width="400" height="240">
-      </p>
-    </td>
-  </tr>
-</table>
-
-> [!CAUTION]
-> **🚨 SECURITY & OFFICIAL CHANNELS / 安全声明**
->
-> * **NO CRYPTO:** PicoClaw has **NO** official token/coin. All claims on `pump.fun` or other trading platforms are **SCAMS**.
->
-> * **OFFICIAL DOMAIN:** The **ONLY** official website is **[picoclaw.io](https://picoclaw.io)**, and company website is **[sipeed.com](https://sipeed.com)**
-> * **Warning:** Many `.ai/.org/.com/.net/...` domains are registered by third parties.
-> * **Warning:** picoclaw is in early development now and may have unresolved network security issues. Do not deploy to production environments before the v1.0 release.
-> * **Note:** picoclaw has recently merged a lot of PRs, which may result in a larger memory footprint (10–20MB) in the latest versions. We plan to prioritize resource optimization as soon as the current feature set reaches a stable state.
-
-## 📢 News
-
-2026-02-16 🎉 PicoClaw hit 12K stars in one week! Thank you all for your support! PicoClaw is growing faster than we ever imagined. Given the high volume of PRs, we urgently need community maintainers. Our volunteer roles and roadmap are officially posted [here](docs/ROADMAP.md) —we can’t wait to have you on board!
-
-2026-02-13 🎉 PicoClaw hit 5000 stars in 4days! Thank you for the community! There are so many PRs & issues coming in (during Chinese New Year holidays), we are finalizing the Project Roadmap and setting up the Developer Group to accelerate PicoClaw's development.  
-🚀 Call to Action: Please submit your feature requests in GitHub Discussions. We will review and prioritize them during our upcoming weekly meeting.
-
-2026-02-09 🎉 PicoClaw Launched! Built in 1 day to bring AI Agents to $10 hardware with <10MB RAM. 🦐 PicoClaw，Let's Go！
-
-## ✨ Features
-
-🪶 **Ultra-Lightweight**: <10MB Memory footprint — 99% smaller than Clawdbot - core functionality.
-
-💰 **Minimal Cost**: Efficient enough to run on $10 Hardware — 98% cheaper than a Mac mini.
-
-⚡️ **Lightning Fast**: 400X Faster startup time, boot in 1 second even in 0.6GHz single core.
-
-🌍 **True Portability**: Single self-contained binary across RISC-V, ARM, and x86, One-click to Go!
-
-🤖 **AI-Bootstrapped**: Autonomous Go-native implementation — 95% Agent-generated core with human-in-the-loop refinement.
-
-|                               | OpenClaw      | NanoBot                  | **PicoClaw**                              |
-| ----------------------------- | ------------- | ------------------------ | ----------------------------------------- |
-| **Language**                  | TypeScript    | Python                   | **Go**                                    |
-| **RAM**                       | >1GB          | >100MB                   | **< 10MB**                                |
-| **Startup**</br>(0.8GHz core) | >500s         | >30s                     | **<1s**                                   |
-| **Cost**                      | Mac Mini 599$ | Most Linux SBC </br>~50$ | **Any Linux Board**</br>**As low as 10$** |
-
-<img src="assets/compare.jpg" alt="PicoClaw" width="512">
-
-## 🦾 Demonstration
-
-### 🛠️ Standard Assistant Workflows
-
-<table align="center">
-  <tr align="center">
-    <th><p align="center">🧩 Full-Stack Engineer</p></th>
-    <th><p align="center">🗂️ Logging & Planning Management</p></th>
-    <th><p align="center">🔎 Web Search & Learning</p></th>
-  </tr>
-  <tr>
-    <td align="center"><p align="center"><img src="assets/picoclaw_code.gif" width="240" height="180"></p></td>
-    <td align="center"><p align="center"><img src="assets/picoclaw_memory.gif" width="240" height="180"></p></td>
-    <td align="center"><p align="center"><img src="assets/picoclaw_search.gif" width="240" height="180"></p></td>
-  </tr>
-  <tr>
-    <td align="center">Develop • Deploy • Scale</td>
-    <td align="center">Schedule • Automate • Memory</td>
-    <td align="center">Discovery • Insights • Trends</td>
-  </tr>
-</table>
-
-### 📱 Run on old Android Phones
-
-Give your decade-old phone a second life! Turn it into a smart AI Assistant with PicoClaw. Quick Start:
-
-1. **Install Termux** (Available on F-Droid or Google Play).
-2. **Execute cmds**
-
-```bash
-# Note: Replace v0.1.1 with the latest version from the Releases page
-wget https://github.com/sipeed/picoclaw/releases/download/v0.1.1/picoclaw-linux-arm64
-chmod +x picoclaw-linux-arm64
-pkg install proot
-termux-chroot ./picoclaw-linux-arm64 onboard
-```
-
-And then follow the instructions in the "Quick Start" section to complete the configuration!
-<img src="assets/termux.jpg" alt="PicoClaw" width="512">
-
-### 🐜 Innovative Low-Footprint Deploy
-
-PicoClaw can be deployed on almost any Linux device!
-
-- $9.9 [LicheeRV-Nano](https://www.aliexpress.com/item/1005006519668532.html) E(Ethernet) or W(WiFi6) version, for Minimal Home Assistant
-- $30~50 [NanoKVM](https://www.aliexpress.com/item/1005007369816019.html), or $100 [NanoKVM-Pro](https://www.aliexpress.com/item/1005010048471263.html) for Automated Server Maintenance
-- $50 [MaixCAM](https://www.aliexpress.com/item/1005008053333693.html) or $100 [MaixCAM2](https://www.kickstarter.com/projects/zepan/maixcam2-build-your-next-gen-4k-ai-camera) for Smart Monitoring
-
-<https://private-user-images.githubusercontent.com/83055338/547056448-e7b031ff-d6f5-4468-bcca-5726b6fecb5c.mp4>
-
-🌟 More Deployment Cases Await！
+* Context Window & Compaction Management
+* Qdrant Vector Storage
+* Session Management
+* Forum topics (Telegram)
 
 ## 📦 Install
-
-### Install with precompiled binary
-
-Download the firmware for your platform from the [release](https://github.com/sipeed/picoclaw/releases) page.
 
 ### Install from source (latest features, recommended for development)
 
 ```bash
-git clone https://github.com/sipeed/picoclaw.git
+git clone https://github.com/waplaysoft/picoclaw.git
 
 cd picoclaw
 make deps
@@ -219,19 +99,23 @@ picoclaw onboard
 
 ```json
 {
-  "agents": {
-    "defaults": {
+  "defaults": {
       "workspace": "~/.picoclaw/workspace",
-      "model_name": "gpt4",
-      "max_tokens": 8192,
+      "restrict_to_workspace": true,
+      "model": "gpt4",
+      "context_window": 200000,
+      "max_tokens": 4096,
       "temperature": 0.7,
-      "max_tool_iterations": 20
+      "max_tool_iterations": 40,
+      "compaction": {
+        "reserve_tokens_floor": 20000,
+        "keep_recent_tokens": 20000
+      }
     }
-  },
   "model_list": [
     {
       "model_name": "gpt4",
-      "model": "openai/gpt-5.2",
+      "model": "openai/gpt-4",
       "api_key": "your-api-key"
     },
     {
@@ -261,13 +145,6 @@ picoclaw onboard
 }
 ```
 
-> **New**: The `model_list` configuration format allows zero-code provider addition. See [Model Configuration](#model-configuration-model_list) for details.
-
-**3. Get API Keys**
-
-* **LLM Provider**: [OpenRouter](https://openrouter.ai/keys) · [Zhipu](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys) · [Anthropic](https://console.anthropic.com) · [OpenAI](https://platform.openai.com) · [Gemini](https://aistudio.google.com/api-keys)
-* **Web Search** (optional): [Tavily](https://tavily.com) - Optimized for AI Agents (1000 requests/month) · [Brave Search](https://brave.com/search/api) - Free tier available (2000 requests/month)
-
 > **Note**: See `config.example.json` for a complete configuration template.
 
 **4. Chat**
@@ -284,14 +161,14 @@ That's it! You have a working AI assistant in 2 minutes.
 
 Talk to your picoclaw through Telegram, Discord, DingTalk, LINE, or WeCom
 
-| Channel      | Setup                              |
-| ------------ | ---------------------------------- |
+| Channel      | Setup                                   |
+| ------------ | --------------------------------------- |
 | **Telegram** | Easy (just a token) · Topics support ✅ |
-| **Discord**  | Easy (bot token + intents)         |
-| **QQ**       | Easy (AppID + AppSecret)           |
-| **DingTalk** | Medium (app credentials)           |
-| **LINE**     | Medium (credentials + webhook URL) |
-| **WeCom**    | Medium (CorpID + webhook setup)    |
+| **Discord**  | Easy (bot token + intents)              |
+| **QQ**       | Easy (AppID + AppSecret)                |
+| **DingTalk** | Medium (app credentials)                |
+| **LINE**     | Medium (credentials + webhook URL)      |
+| **WeCom**    | Medium (CorpID + webhook setup)         |
 
 <details>
 <summary><b>Telegram</b> (Recommended)</summary>
@@ -574,19 +451,11 @@ picoclaw gateway
 
 </details>
 
-## <img src="assets/clawdchat-icon.png" width="24" height="24" alt="ClawdChat"> Join the Agent Social Network
-
-Connect Picoclaw to the Agent Social Network simply by sending a single message via the CLI or any integrated Chat App.
-
-**Read `https://clawdchat.ai/skill.md` and follow the instructions to join [ClawdChat.ai](https://clawdchat.ai)**
-
 ## ⚙️ Configuration
 
 Config file: `~/.picoclaw/config.json`
 
-## ⚙️ Configuration
-
-### Context Window Management (New)
+### Context Window Management
 
 PicoClaw provides advanced context window management to balance memory usage and conversation quality.
 
@@ -610,29 +479,20 @@ This prevents aggressive compression and maintains longer conversation context c
 **Example configuration:**
 
 ```json
-{
-  "agents": {
-    "defaults": {
-      "model": "glm-4.7",
-      "context_window": 200000,
-      "max_tokens": 4096,
-      "compaction": {
-        "reserve_tokens_floor": 20000,
-        "keep_recent_tokens": 20000
-      }
+"agents": {
+  "defaults": {
+    "model": "glm-4.7",
+    "context_window": 200000,
+    "max_tokens": 4096,
+    "compaction": {
+      "reserve_tokens_floor": 20000,
+      "keep_recent_tokens": 20000
     }
-  },
-  "model_list": [
-    {
-      "model_name": "glm-large",
-      "model": "zhipu/glm-4.7",
-      "api_key": "your-zhipu-key"
-    }
-  ]
+  }
 }
 ```
 
-> **Note**: `context_window` and `max_tokens` are separate concepts. `context_window` controls input size, `max_tokens` controls output size. For models with large context windows (e.g., GLM-4.7 with 200k tokens), set `max_tokens` much lower (e.g., 4096) to reserve tokens for long inputs.
+> **Note**: `context_window` and `max_tokens` are separate concepts. `context_window` controls input size, `max_tokens` controls output size.
 
 ### Workspace Layout
 
@@ -660,12 +520,10 @@ PicoClaw runs in a sandboxed environment by default. The agent can only access f
 #### Default Configuration
 
 ```json
-{
-  "agents": {
-    "defaults": {
-      "workspace": "~/.picoclaw/workspace",
-      "restrict_to_workspace": true
-    }
+"agents": {
+  "defaults": {
+    "workspace": "~/.picoclaw/workspace",
+    "restrict_to_workspace": true
   }
 }
 ```
@@ -715,22 +573,14 @@ Even with `restrict_to_workspace: false`, the `exec` tool blocks these dangerous
 
 If you need the agent to access paths outside the workspace:
 
-**Method 1: Config file**
+**Config file**
 
 ```json
-{
-  "agents": {
-    "defaults": {
-      "restrict_to_workspace": false
-    }
+"agents": {
+  "defaults": {
+    "restrict_to_workspace": false
   }
 }
-```
-
-**Method 2: Environment variable**
-
-```bash
-export PICOCLAW_AGENTS_DEFAULTS_RESTRICT_TO_WORKSPACE=false
 ```
 
 > ⚠️ **Warning**: Disabling this restriction allows the agent to access any path on your system. Use with caution in controlled environments only.
@@ -808,11 +658,9 @@ The subagent has access to tools (message, web_search, etc.) and can communicate
 **Configuration:**
 
 ```json
-{
-  "heartbeat": {
-    "enabled": true,
-    "interval": 30
-  }
+"heartbeat": {
+  "enabled": true,
+  "interval": 30
 }
 ```
 
@@ -821,12 +669,7 @@ The subagent has access to tools (message, web_search, etc.) and can communicate
 | `enabled`  | `true`  | Enable/disable heartbeat           |
 | `interval` | `30`    | Check interval in minutes (min: 5) |
 
-**Environment variables:**
-
-* `PICOCLAW_HEARTBEAT_ENABLED=false` to disable
-* `PICOCLAW_HEARTBEAT_INTERVAL=60` to change interval
-
-### 🗄️ Qdrant Vector Storage (New)
+### 🗄️ Qdrant Vector Storage
 
 PicoClaw supports **persistent message storage** in [Qdrant](https://qdrant.io/) vector database with semantic search capabilities. All chat messages are automatically embedded using Mistral AI and stored for long-term memory and context retrieval.
 
@@ -853,56 +696,25 @@ docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
 
 **3. Configure PicoClaw** (`~/.picoclaw/config.json`):
 
-**Option A: Using `storage.embedding` (recommended, no duplication):**
-
 ```json
-{
-  "storage": {
-    "qdrant": {
-      "enabled": true,
-      "host": "localhost",
-      "port": 6333,
-      "collection": "picoclaw_messages",
-      "vector_size": 1024,
-      "secure": false,
-      "api_key": ""
-    },
-    "embedding": {
-      "enabled": true,
-      "model": "mistral-embed",
-      "api_base": "https://api.mistral.ai/v1",
-      "api_key": "your-mistral-api-key"
-    }
+"storage": {
+  "qdrant": {
+    "enabled": true,
+    "host": "localhost",
+    "port": 6333,
+    "collection": "picoclaw_messages",
+    "vector_size": 1024,
+    "secure": false,
+    "api_key": ""
+  },
+  "embedding": {
+    "enabled": true,
+    "model": "mistral-embed",
+    "api_base": "https://api.mistral.ai/v1",
+    "api_key": "your-mistral-api-key"
   }
 }
 ```
-
-**Option B: Using `model_list` (alternative):**
-
-```json
-{
-  "storage": {
-    "qdrant": {
-      "enabled": true,
-      "host": "localhost",
-      "port": 6333,
-      "collection": "picoclaw_messages",
-      "vector_size": 1024,
-      "secure": false
-    }
-  },
-  "model_list": [
-    {
-      "model_name": "mistral-embed",
-      "model": "mistral/mistral-embed",
-      "api_base": "https://api.mistral.ai/v1",
-      "api_key": "your-mistral-api-key"
-    }
-  ]
-}
-```
-
-> **Note:** You can use either `storage.embedding` or `model_list` to configure the embedding API key. If both are provided, `model_list` takes precedence.
 
 #### Configuration Options
 
@@ -935,15 +747,13 @@ The `qdrant_search_memory` tool is automatically available when Qdrant is enable
 **Example usage by agent:**
 
 ```json
-{
-  "tool": "qdrant_search_memory",
-  "arguments": {
-    "query_text": "How did the user configure Docker?",
-    "limit": 5,
-    "filters": {
-      "role": "user",
-      "timestamp_from": "2024-01-01T00:00:00Z"
-    }
+"tool": "qdrant_search_memory",
+"arguments": {
+  "query_text": "How did the user configure Docker?",
+  "limit": 5,
+  "filters": {
+    "role": "user",
+    "timestamp_from": "2024-01-01T00:00:00Z"
   }
 }
 ```
@@ -962,46 +772,24 @@ The `qdrant_search_memory` tool is automatically available when Qdrant is enable
 #### Qdrant Cloud Configuration
 
 ```json
-{
-  "storage": {
-    "qdrant": {
-      "enabled": true,
-      "host": "your-cluster-id.cloud.qdrant.io",
-      "port": 443,
-      "secure": true,
-      "api_key": "your-qdrant-cloud-api-key",
-      "collection": "picoclaw_messages",
-      "vector_size": 1024
-    },
-    "embedding": {
-      "enabled": true,
-      "model": "mistral-embed",
-      "api_base": "https://api.mistral.ai/v1",
-      "api_key": "your-mistral-api-key"
-    }
+"storage": {
+  "qdrant": {
+    "enabled": true,
+    "host": "your-cluster-id.cloud.qdrant.io",
+    "port": 443,
+    "secure": true,
+    "api_key": "your-qdrant-cloud-api-key",
+    "collection": "picoclaw_messages",
+    "vector_size": 1024
+  },
+  "embedding": {
+    "enabled": true,
+    "model": "mistral-embed",
+    "api_base": "https://api.mistral.ai/v1",
+    "api_key": "your-mistral-api-key"
   }
 }
 ```
-
-#### Environment Variables
-
-```bash
-# Qdrant
-export PICOCLAW_STORAGE_QDRANT_ENABLED=true
-export PICOCLAW_STORAGE_QDRANT_HOST=localhost
-export PICOCLAW_STORAGE_QDRANT_PORT=6333
-export PICOCLAW_STORAGE_QDRANT_COLLECTION=picoclaw_messages
-export PICOCLAW_STORAGE_QDRANT_VECTOR_SIZE=1024
-export PICOCLAW_STORAGE_QDRANT_SECURE=false
-export PICOCLAW_STORAGE_QDRANT_API_KEY=your-qdrant-api-key
-
-# Embedding
-export PICOCLAW_EMBEDDING_API_KEY=your-mistral-api-key
-export PICOCLAW_EMBEDDING_MODEL=mistral-embed
-export PICOCLAW_EMBEDDING_API_BASE=https://api.mistral.ai/v1
-```
-
-> **Note**: Heartbeat messages (`session_key: heartbeat`), internal messages (`tool`, `system` roles), and messages with empty content are automatically excluded from storage to keep the database clean.
 
 ### Providers
 
@@ -1019,10 +807,9 @@ export PICOCLAW_EMBEDDING_API_BASE=https://api.mistral.ai/v1
 | `qwen`                     | LLM (Qwen direct)                       | [dashscope.console.aliyun.com](https://dashscope.console.aliyun.com) |
 | `groq`                     | LLM + **Voice transcription** (Whisper) | [console.groq.com](https://console.groq.com)                         |
 | `cerebras`                 | LLM (Cerebras direct)                   | [cerebras.ai](https://cerebras.ai)                                   |
+| `mistral`                 | LLM (Mistral direct)                   | [console.mistral.ai](https://console.mistral.ai)                                   |
 
 ### Model Configuration (model_list)
-
-> **What's New?** PicoClaw now uses a **model-centric** configuration approach. Simply specify `vendor/model` format (e.g., `zhipu/glm-4.7`) to add new providers—**zero code changes required!**
 
 This design also enables **multi-agent support** with flexible provider selection:
 
@@ -1037,12 +824,12 @@ This design also enables **multi-agent support** with flexible provider selectio
 | ------------------- | ----------------- | --------------------------------------------------- | --------- | ---------------------------------------------------------------- |
 | **OpenAI**          | `openai/`         | `https://api.openai.com/v1`                         | OpenAI    | [Get Key](https://platform.openai.com)                           |
 | **Anthropic**       | `anthropic/`      | `https://api.anthropic.com/v1`                      | Anthropic | [Get Key](https://console.anthropic.com)                         |
-| **智谱 AI (GLM)**   | `zhipu/`          | `https://open.bigmodel.cn/api/paas/v4`              | OpenAI    | [Get Key](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys) |
+| **AI (GLM)**   | `zhipu/`          | `https://open.bigmodel.cn/api/paas/v4`              | OpenAI    | [Get Key](https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys) |
 | **DeepSeek**        | `deepseek/`       | `https://api.deepseek.com/v1`                       | OpenAI    | [Get Key](https://platform.deepseek.com)                         |
 | **Google Gemini**   | `gemini/`         | `https://generativelanguage.googleapis.com/v1beta`  | OpenAI    | [Get Key](https://aistudio.google.com/api-keys)                  |
 | **Groq**            | `groq/`           | `https://api.groq.com/openai/v1`                    | OpenAI    | [Get Key](https://console.groq.com)                              |
 | **Moonshot**        | `moonshot/`       | `https://api.moonshot.cn/v1`                        | OpenAI    | [Get Key](https://platform.moonshot.cn)                          |
-| **通义千问 (Qwen)** | `qwen/`           | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI    | [Get Key](https://dashscope.console.aliyun.com)                  |
+| **Qwen** | `qwen/`           | `https://dashscope.aliyuncs.com/compatible-mode/v1` | OpenAI    | [Get Key](https://dashscope.console.aliyun.com)                  |
 | **NVIDIA**          | `nvidia/`         | `https://integrate.api.nvidia.com/v1`               | OpenAI    | [Get Key](https://build.nvidia.com)                              |
 | **Ollama**          | `ollama/`         | `http://localhost:11434/v1`                         | OpenAI    | Local (no key needed)                                            |
 | **OpenRouter**      | `openrouter/`     | `https://openrouter.ai/api/v1`                      | OpenAI    | [Get Key](https://openrouter.ai/keys)                            |
@@ -1052,97 +839,32 @@ This design also enables **multi-agent support** with flexible provider selectio
 | **神算云**          | `shengsuanyun/`   | `https://router.shengsuanyun.com/api/v1`            | OpenAI    | -                                                                |
 | **Antigravity**     | `antigravity/`    | Google Cloud                                        | Custom    | OAuth only                                                       |
 | **GitHub Copilot**  | `github-copilot/` | `localhost:4321`                                    | gRPC      | -                                                                |
+| **Mistral**        | `mistral/`       | `https://api.mistral.ai/v1`                        | OpenAI    | [Get Key](https://console.mistral.ai)                                   |
 
 #### Basic Configuration
 
 ```json
-{
-  "model_list": [
-    {
-      "model_name": "gpt-5.2",
-      "model": "openai/gpt-5.2",
-      "api_key": "sk-your-openai-key"
-    },
-    {
-      "model_name": "claude-sonnet-4.6",
-      "model": "anthropic/claude-sonnet-4.6",
-      "api_key": "sk-ant-your-key"
-    },
-    {
-      "model_name": "glm-4.7",
-      "model": "zhipu/glm-4.7",
-      "api_key": "your-zhipu-key"
-    }
-  ],
-  "agents": {
-    "defaults": {
-      "model": "gpt-5.2"
-    }
+"model_list": [
+  {
+    "model_name": "gpt-5.2",
+    "model": "openai/gpt-5.2",
+    "api_key": "sk-your-openai-key"
+  },
+  {
+    "model_name": "claude-sonnet-4.6",
+    "model": "anthropic/claude-sonnet-4.6",
+    "api_key": "sk-ant-your-key"
+  },
+  {
+    "model_name": "glm-4.7",
+    "model": "zhipu/glm-4.7",
+    "api_key": "your-zhipu-key"
   }
-}
-```
-
-#### Vendor-Specific Examples
-
-**OpenAI**
-
-```json
-{
-  "model_name": "gpt-5.2",
-  "model": "openai/gpt-5.2",
-  "api_key": "sk-..."
-}
-```
-
-**智谱 AI (GLM)**
-
-```json
-{
-  "model_name": "glm-4.7",
-  "model": "zhipu/glm-4.7",
-  "api_key": "your-key"
-}
-```
-
-**DeepSeek**
-
-```json
-{
-  "model_name": "deepseek-chat",
-  "model": "deepseek/deepseek-chat",
-  "api_key": "sk-..."
-}
-```
-
-**Anthropic (with API key)**
-
-```json
-{
-  "model_name": "claude-sonnet-4.6",
-  "model": "anthropic/claude-sonnet-4.6",
-  "api_key": "sk-ant-your-key"
-}
-```
-
-> Run `picoclaw auth login --provider anthropic` to paste your API token.
-
-**Ollama (local)**
-
-```json
-{
-  "model_name": "llama3",
-  "model": "ollama/llama3"
-}
-```
-
-**Custom Proxy/API**
-
-```json
-{
-  "model_name": "my-custom-model",
-  "model": "openai/custom-model",
-  "api_base": "https://my-proxy.com/v1",
-  "api_key": "sk-..."
+],
+"agents": {
+  "defaults": {
+    "model": "gpt-5.2"
+  }
 }
 ```
 
@@ -1168,169 +890,6 @@ Configure multiple endpoints for the same model name—PicoClaw will automatical
   ]
 }
 ```
-
-#### Migration from Legacy `providers` Config
-
-The old `providers` configuration is **deprecated** but still supported for backward compatibility.
-
-**Old Config (deprecated):**
-
-```json
-{
-  "providers": {
-    "zhipu": {
-      "api_key": "your-key",
-      "api_base": "https://open.bigmodel.cn/api/paas/v4"
-    }
-  },
-  "agents": {
-    "defaults": {
-      "provider": "zhipu",
-      "model": "glm-4.7"
-    }
-  }
-}
-```
-
-**New Config (recommended):**
-
-```json
-{
-  "model_list": [
-    {
-      "model_name": "glm-4.7",
-      "model": "zhipu/glm-4.7",
-      "api_key": "your-key"
-    }
-  ],
-  "agents": {
-    "defaults": {
-      "model": "glm-4.7"
-    }
-  }
-}
-```
-
-For detailed migration guide, see [docs/migration/model-list-migration.md](docs/migration/model-list-migration.md).
-
-### Provider Architecture
-
-PicoClaw routes providers by protocol family:
-
-- OpenAI-compatible protocol: OpenRouter, OpenAI-compatible gateways, Groq, Zhipu, and vLLM-style endpoints.
-- Anthropic protocol: Claude-native API behavior.
-- Codex/OAuth path: OpenAI OAuth/token authentication route.
-
-This keeps the runtime lightweight while making new OpenAI-compatible backends mostly a config operation (`api_base` + `api_key`).
-
-<details>
-<summary><b>Zhipu</b></summary>
-
-**1. Get API key and base URL**
-
-* Get [API key](https://bigmodel.cn/usercenter/proj-mgmt/apikeys)
-
-**2. Configure**
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "workspace": "~/.picoclaw/workspace",
-      "model": "glm-4.7",
-      "max_tokens": 8192,
-      "temperature": 0.7,
-      "max_tool_iterations": 20
-    }
-  },
-  "providers": {
-    "zhipu": {
-      "api_key": "Your API Key",
-      "api_base": "https://open.bigmodel.cn/api/paas/v4"
-    }
-  }
-}
-```
-
-**3. Run**
-
-```bash
-picoclaw agent -m "Hello"
-```
-
-</details>
-
-<details>
-<summary><b>Full config example</b></summary>
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": "anthropic/claude-opus-4-5"
-    }
-  },
-  "providers": {
-    "openrouter": {
-      "api_key": "sk-or-v1-xxx"
-    },
-    "groq": {
-      "api_key": "gsk_xxx"
-    }
-  },
-  "channels": {
-    "telegram": {
-      "enabled": true,
-      "token": "123456:ABC...",
-      "allow_from": ["123456789"]
-    },
-    "discord": {
-      "enabled": true,
-      "token": "",
-      "allow_from": [""]
-    },
-    "whatsapp": {
-      "enabled": false
-    },
-    "feishu": {
-      "enabled": false,
-      "app_id": "cli_xxx",
-      "app_secret": "xxx",
-      "encrypt_key": "",
-      "verification_token": "",
-      "allow_from": []
-    },
-    "qq": {
-      "enabled": false,
-      "app_id": "",
-      "app_secret": "",
-      "allow_from": []
-    }
-  },
-  "tools": {
-    "web": {
-      "brave": {
-        "enabled": false,
-        "api_key": "BSA...",
-        "max_results": 5
-      },
-      "duckduckgo": {
-        "enabled": true,
-        "max_results": 5
-      }
-    },
-    "cron": {
-      "exec_timeout_minutes": 5
-    }
-  },
-  "heartbeat": {
-    "enabled": true,
-    "interval": 30
-  }
-}
-```
-
-</details>
 
 ## CLI Reference
 
@@ -1389,67 +948,6 @@ PicoClaw supports scheduled reminders and recurring tasks through the `cron` too
 
 Jobs are stored in `~/.picoclaw/workspace/cron/` and processed automatically.
 
-## 🤝 Contribute & Roadmap
+## 🤝 Contribute
 
-PRs welcome! The codebase is intentionally small and readable. 🤗
-
-See our full [Community Roadmap](https://github.com/sipeed/picoclaw/blob/main/ROADMAP.md).
-
-Developer group building, join after your first merged PR!
-
-User Groups:
-
-discord: <https://discord.gg/V4sAZ9XWpN>
-
-<img src="assets/wechat.png" alt="PicoClaw" width="512">
-
-## 🐛 Troubleshooting
-
-### Web search says "API key configuration issue"
-
-This is normal if you haven't configured a search API key yet. PicoClaw will provide helpful links for manual searching.
-
-To enable web search:
-
-1. **Option 1 (Recommended)**: Get a free API key at [https://brave.com/search/api](https://brave.com/search/api) (2000 free queries/month) for the best results.
-2. **Option 2 (No Credit Card)**: If you don't have a key, we automatically fall back to **DuckDuckGo** (no key required).
-
-Add the key to `~/.picoclaw/config.json` if using Brave:
-
-```json
-{
-  "tools": {
-    "web": {
-      "brave": {
-        "enabled": false,
-        "api_key": "YOUR_BRAVE_API_KEY",
-        "max_results": 5
-      },
-      "duckduckgo": {
-        "enabled": true,
-        "max_results": 5
-      }
-    }
-  }
-}
-```
-
-### Getting content filtering errors
-
-Some providers (like Zhipu) have content filtering. Try rephrasing your query or use a different model.
-
-### Telegram bot says "Conflict: terminated by other getUpdates"
-
-This happens when another instance of the bot is running. Make sure only one `picoclaw gateway` is running at a time.
-
----
-
-## 📝 API Key Comparison
-
-| Service          | Free Tier           | Use Case                              |
-| ---------------- | ------------------- | ------------------------------------- |
-| **OpenRouter**   | 200K tokens/month   | Multiple models (Claude, GPT-4, etc.) |
-| **Zhipu**        | 200K tokens/month   | Best for Chinese users                |
-| **Brave Search** | 2000 queries/month  | Web search functionality              |
-| **Groq**         | Free tier available | Fast inference (Llama, Mixtral)       |
-| **Cerebras**     | Free tier available | Fast inference (Llama, Qwen, etc.)    |
+PRs welcome! The codebase is intentionally small and readable.
