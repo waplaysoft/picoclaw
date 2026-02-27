@@ -47,16 +47,17 @@ type AgentLoop struct {
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey      string // Session identifier for history/context
-	Channel         string // Target channel for tool execution
-	ChatID          string // Target chat ID for tool execution
-	ThreadID        string // Target thread ID (for Telegram topics)
-	UserMessage     string // User message content (may include prefix)
-	DefaultResponse string // Response when LLM returns empty
-	EnableSummary   bool   // Whether to trigger summarization
-	SendResponse    bool   // Whether to send response via bus
-	NoHistory       bool   // If true, don't load session history (for heartbeat)
-	SentContent     string // Content already sent via message tool (for session storage)
+	SessionKey       string // Session identifier for history/context
+	Channel          string // Target channel for tool execution
+	ChatID           string // Target chat ID for tool execution
+	ThreadID         string // Target thread ID (for Telegram topics)
+	UserMessage      string // User message content (may include prefix)
+	DefaultResponse  string // Response when LLM returns empty
+	EnableSummary    bool   // Whether to trigger summarization
+	SendResponse     bool   // Whether to send response via bus
+	NoHistory        bool   // If true, don't load session history (for heartbeat)
+	SentContent      string // Content already sent via message tool (for session storage)
+	IsSubagentResult bool   // If true, this is a subagent result (save as "tool" role, not "user")
 }
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
@@ -394,13 +395,14 @@ func (al *AgentLoop) processSystemMessage(ctx context.Context, msg bus.InboundMe
 	sessionKey := routing.BuildAgentMainSessionKey(agent.ID)
 
 	return al.runAgentLoop(ctx, agent, processOptions{
-		SessionKey:      sessionKey,
-		Channel:         originChannel,
-		ChatID:          originChatID,
-		UserMessage:     fmt.Sprintf("[System: %s] %s", msg.SenderID, msg.Content),
-		DefaultResponse: "Background task completed.",
-		EnableSummary:   false,
-		SendResponse:    true,
+		SessionKey:       sessionKey,
+		Channel:          originChannel,
+		ChatID:           originChatID,
+		UserMessage:      fmt.Sprintf("[System: %s] %s", msg.SenderID, msg.Content),
+		DefaultResponse:  "Background task completed.",
+		EnableSummary:    false,
+		SendResponse:     true,
+		IsSubagentResult: true, // Save as "tool" role, not "user"
 	})
 }
 
@@ -437,8 +439,23 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 		opts.ChatID,
 	)
 
-	// 3. Save user message to session
-	agent.Sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+	// 3. Save message to session
+	// For subagent results, save as "tool" role instead of "user"
+	if opts.IsSubagentResult {
+		// Find the last tool_call_id from the session to associate with this result
+		var toolCallID string
+		if len(history) > 0 {
+			for i := len(history) - 1; i >= 0; i-- {
+				if history[i].Role == "assistant" && len(history[i].ToolCalls) > 0 {
+					toolCallID = history[i].ToolCalls[0].ID
+					break
+				}
+			}
+		}
+		agent.Sessions.AddToolMessage(opts.SessionKey, opts.UserMessage, toolCallID)
+	} else {
+		agent.Sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+	}
 
 	// 4. Run LLM iteration loop
 	finalContent, sentContent, iteration, err := al.runLLMIteration(ctx, agent, messages, opts)
