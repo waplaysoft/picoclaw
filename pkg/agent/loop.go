@@ -149,8 +149,12 @@ func registerSharedTools(
 		agent.Tools.Register(tools.NewInstallSkillTool(registryMgr, agent.Workspace))
 
 		// Spawn tool with allowlist checker
-		subagentManager := tools.NewSubagentManager(provider, agent.Model, agent.Workspace, msgBus)
+		// Create subagent manager with registry access for agent-specific configuration
+		subagentRegistry := newSubagentRegistry(registry)
+		subagentManager := tools.NewSubagentManager(provider, agent.Model, agent.Workspace, msgBus, subagentRegistry)
 		subagentManager.SetLLMOptions(agent.MaxTokens, agent.Temperature)
+		// Share the main agent's tools with the subagent manager
+		subagentManager.SetTools(agent.Tools)
 		spawnTool := tools.NewSpawnTool(subagentManager)
 		currentAgentID := agentID
 		spawnTool.SetAllowlistChecker(func(targetAgentID string) bool {

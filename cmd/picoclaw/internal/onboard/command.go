@@ -7,7 +7,7 @@ import (
 )
 
 //go:generate cp -r ../../../../workspace .
-//go:embed workspace
+//go:embed workspace/**
 var embeddedFiles embed.FS
 
 func NewOnboardCommand() *cobra.Command {

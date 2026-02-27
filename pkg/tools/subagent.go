@@ -10,6 +10,28 @@ import (
 	"github.com/sipeed/picoclaw/pkg/providers"
 )
 
+// AgentConfigForSubagent contains the minimal agent configuration needed for subagent execution.
+// This is a subset of agent.AgentInstance to avoid circular dependencies.
+type AgentConfigForSubagent struct {
+	ID            string
+	Name          string
+	Model         string
+	Fallbacks     []string
+	Workspace     string
+	MaxIterations int
+	MaxTokens     int
+	Temperature   float64
+	ContextWindow int
+	Tools         *ToolRegistry
+	SystemPrompt  string
+	SkillsFilter  []string
+}
+
+// AgentRegistryForSubagent is an interface to avoid circular dependency with agent package.
+type AgentRegistryForSubagent interface {
+	GetAgent(agentID string) (*AgentConfigForSubagent, bool)
+}
+
 type SubagentTask struct {
 	ID            string
 	Task          string
@@ -36,12 +58,14 @@ type SubagentManager struct {
 	hasMaxTokens   bool
 	hasTemperature bool
 	nextID         int
+	registry       AgentRegistryForSubagent
 }
 
 func NewSubagentManager(
 	provider providers.LLMProvider,
 	defaultModel, workspace string,
 	bus *bus.MessageBus,
+	registry AgentRegistryForSubagent,
 ) *SubagentManager {
 	return &SubagentManager{
 		tasks:         make(map[string]*SubagentTask),
@@ -52,6 +76,7 @@ func NewSubagentManager(
 		tools:         NewToolRegistry(),
 		maxIterations: 10,
 		nextID:        1,
+		registry:      registry,
 	}
 }
 
@@ -78,6 +103,18 @@ func (sm *SubagentManager) RegisterTool(tool Tool) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.tools.Register(tool)
+}
+
+// buildDefaultSubagentPrompt creates a default system prompt for subagent execution.
+func (sm *SubagentManager) buildDefaultSubagentPrompt(agentName string) string {
+	if agentName != "" {
+		return fmt.Sprintf(`You are a subagent named "%s". Complete the given task independently and report the result.
+You have access to tools - use them as needed to complete your task.
+After completing the task, provide a clear summary of what was done.`, agentName)
+	}
+	return `You are a subagent. Complete the given task independently and report the result.
+You have access to tools - use them as needed to complete your task.
+After completing the task, provide a clear summary of what was done.`
 }
 
 func (sm *SubagentManager) Spawn(
@@ -116,10 +153,64 @@ func (sm *SubagentManager) runTask(ctx context.Context, task *SubagentTask, call
 	task.Status = "running"
 	task.Created = time.Now().UnixMilli()
 
-	// Build system prompt for subagent
-	systemPrompt := `You are a subagent. Complete the given task independently and report the result.
-You have access to tools - use them as needed to complete your task.
-After completing the task, provide a clear summary of what was done.`
+	// Default values for subagent without specific agent config
+	var systemPrompt string
+	var model string
+	var tools *ToolRegistry
+	var maxIter int
+	var maxTokens int
+	var temperature float64
+	var hasMaxTokens bool
+	var hasTemperature bool
+
+	// Load agent configuration if agent_id is specified
+	if task.AgentID != "" && sm.registry != nil {
+		if agentConfig, ok := sm.registry.GetAgent(task.AgentID); ok {
+			// Use agent-specific configuration
+			systemPrompt = agentConfig.SystemPrompt
+			if systemPrompt == "" {
+				systemPrompt = sm.buildDefaultSubagentPrompt(agentConfig.Name)
+			}
+			model = agentConfig.Model
+			if model == "" {
+				model = sm.defaultModel
+			}
+			tools = agentConfig.Tools
+			if tools == nil {
+				tools = sm.tools
+			}
+			maxIter = agentConfig.MaxIterations
+			if maxIter == 0 {
+				maxIter = sm.maxIterations
+			}
+			maxTokens = agentConfig.MaxTokens
+			temperature = agentConfig.Temperature
+			hasMaxTokens = maxTokens > 0
+			hasTemperature = true
+		} else {
+			// Agent not found, use defaults
+			systemPrompt = sm.buildDefaultSubagentPrompt(task.AgentID)
+			model = sm.defaultModel
+			tools = sm.tools
+			maxIter = sm.maxIterations
+		}
+	} else {
+		// No agent specified, use default subagent configuration
+		systemPrompt = sm.buildDefaultSubagentPrompt("")
+		model = sm.defaultModel
+		tools = sm.tools
+		maxIter = sm.maxIterations
+	}
+
+	// Apply global LLM options if not set by agent config
+	if !hasMaxTokens {
+		sm.mu.RLock()
+		maxTokens = sm.maxTokens
+		temperature = sm.temperature
+		hasMaxTokens = sm.hasMaxTokens
+		hasTemperature = sm.hasTemperature
+		sm.mu.RUnlock()
+	}
 
 	messages := []providers.Message{
 		{
@@ -143,16 +234,6 @@ After completing the task, provide a clear summary of what was done.`
 	default:
 	}
 
-	// Run tool loop with access to tools
-	sm.mu.RLock()
-	tools := sm.tools
-	maxIter := sm.maxIterations
-	maxTokens := sm.maxTokens
-	temperature := sm.temperature
-	hasMaxTokens := sm.hasMaxTokens
-	hasTemperature := sm.hasTemperature
-	sm.mu.RUnlock()
-
 	var llmOptions map[string]any
 	if hasMaxTokens || hasTemperature {
 		llmOptions = map[string]any{}
@@ -166,7 +247,7 @@ After completing the task, provide a clear summary of what was done.`
 
 	loopResult, err := RunToolLoop(ctx, ToolLoopConfig{
 		Provider:      sm.provider,
-		Model:         sm.defaultModel,
+		Model:         model,
 		Tools:         tools,
 		MaxIterations: maxIter,
 		LLMOptions:    llmOptions,
