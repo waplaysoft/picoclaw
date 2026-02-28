@@ -25,6 +25,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/state"
 	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/voice"
+	"github.com/sipeed/picoclaw/pkg/webui"
 )
 
 func gatewayCmd(debug bool) error {
@@ -196,6 +197,23 @@ func gatewayCmd(debug bool) error {
 	}()
 	fmt.Printf("✓ Health endpoints available at http://%s:%d/health and /ready\n", cfg.Gateway.Host, cfg.Gateway.Port)
 
+	// Start WebUI server if enabled
+	var webuiServer *webui.Server
+	if cfg.WebUI.Enabled {
+		webuiHandlers := webui.NewHandlers(agentLoop)
+		webuiServer = webui.NewServer(&webui.Config{
+			Host:    cfg.WebUI.Host,
+			Port:    cfg.WebUI.Port,
+			Enabled: cfg.WebUI.Enabled,
+		}, webuiHandlers)
+		go func() {
+			if err := webuiServer.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.ErrorCF("webui", "WebUI server error", map[string]any{"error": err.Error()})
+			}
+		}()
+		fmt.Printf("✓ WebUI available at http://%s:%d\n", cfg.WebUI.Host, cfg.WebUI.Port)
+	}
+
 	go agentLoop.Run(ctx)
 
 	sigChan := make(chan os.Signal, 1)
@@ -208,6 +226,9 @@ func gatewayCmd(debug bool) error {
 	}
 	cancel()
 	healthServer.Stop(context.Background())
+	if webuiServer != nil {
+		webuiServer.Stop(context.Background())
+	}
 	deviceService.Stop()
 	heartbeatService.Stop()
 	cronService.Stop()

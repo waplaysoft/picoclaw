@@ -54,6 +54,7 @@ type Config struct {
 	Providers ProvidersConfig `json:"providers,omitempty"`
 	ModelList []ModelConfig   `json:"model_list"` // New model-centric provider configuration
 	Gateway   GatewayConfig   `json:"gateway"`
+	WebUI     WebUIConfig     `json:"webui,omitempty"`
 	Tools     ToolsConfig     `json:"tools"`
 	Heartbeat HeartbeatConfig `json:"heartbeat"`
 	Devices   DevicesConfig   `json:"devices"`
@@ -457,6 +458,12 @@ func (c *ModelConfig) Validate() error {
 type GatewayConfig struct {
 	Host string `json:"host" env:"PICOCLAW_GATEWAY_HOST"`
 	Port int    `json:"port" env:"PICOCLAW_GATEWAY_PORT"`
+}
+
+type WebUIConfig struct {
+	Enabled bool   `json:"enabled" env:"PICOCLAW_WEBUI_ENABLED"`
+	Host    string `json:"host"    env:"PICOCLAW_WEBUI_HOST"`
+	Port    int    `json:"port"    env:"PICOCLAW_WEBUI_PORT"`
 }
 
 type BraveConfig struct {
