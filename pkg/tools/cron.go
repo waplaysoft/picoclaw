@@ -298,12 +298,32 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 			output = fmt.Sprintf("Scheduled command '%s' executed:\n%s", job.Payload.Command, result.ForLLM)
 		}
 
-		t.msgBus.PublishOutbound(bus.OutboundMessage{
-			Channel:  channel,
-			ChatID:   chatID,
-			ThreadID: threadID,
-			Content:  output,
-		})
+		// For deliver=false, don't send raw command output - let agent process it
+		// For deliver=true, send the command output directly
+		if job.Payload.Deliver {
+			t.msgBus.PublishOutbound(bus.OutboundMessage{
+				Channel:  channel,
+				ChatID:   chatID,
+				ThreadID: threadID,
+				Content:  output,
+			})
+		} else {
+			// Process command output through agent for better formatting
+			sessionKey := fmt.Sprintf("cron-%s", job.ID)
+			response, err := t.executor.ProcessDirectWithChannel(
+				ctx,
+				output,
+				sessionKey,
+				channel,
+				chatID,
+				"user",
+				false, // Don't suppress - this is the final output
+			)
+			if err != nil {
+				return fmt.Sprintf("Error: %v", err)
+			}
+			_ = response
+		}
 		return "ok"
 	}
 
