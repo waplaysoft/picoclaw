@@ -420,7 +420,7 @@ func (al *AgentLoop) processMessageWithRole(ctx context.Context, msg bus.Inbound
 		UserMessage:     msg.Content,
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
-		SendResponse:    false,
+		SendResponse:    true, // Send response for cron-triggered messages
 		MessageRole:     role,
 	})
 }

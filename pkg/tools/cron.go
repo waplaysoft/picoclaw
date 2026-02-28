@@ -321,14 +321,15 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 	// For deliver=false, process through agent (for complex tasks)
 	sessionKey := fmt.Sprintf("cron-%s", job.ID)
 
-	// Call agent with job's message using "system" role so it's not confused with user input
+	// Call agent with job's message using "user" role so the response is sent to the user.
+	// The message is still saved with a distinct marker in session for debugging.
 	response, err := t.executor.ProcessDirectWithChannel(
 		ctx,
 		job.Payload.Message,
 		sessionKey,
 		channel,
 		chatID,
-		"system", // Use "system" role to distinguish from user messages
+		"user", // Use "user" role to ensure response is sent
 	)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)
