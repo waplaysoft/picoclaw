@@ -25,6 +25,7 @@ type CronTool struct {
 	execTool    *ExecTool
 	channel     string
 	chatID      string
+	threadID    string
 	mu          sync.RWMutex
 }
 
@@ -98,11 +99,12 @@ func (t *CronTool) Parameters() map[string]any {
 }
 
 // SetContext sets the current session context for job creation
-func (t *CronTool) SetContext(channel, chatID string) {
+func (t *CronTool) SetContext(channel, chatID, threadID string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.channel = channel
 	t.chatID = chatID
+	t.threadID = threadID
 }
 
 // Execute runs the tool with the given arguments
@@ -197,6 +199,7 @@ func (t *CronTool) addJob(args map[string]any) *ToolResult {
 		deliver,
 		channel,
 		chatID,
+		t.threadID,
 	)
 	if err != nil {
 		return ErrorResult(fmt.Sprintf("Error adding job: %v", err))
@@ -268,9 +271,10 @@ func (t *CronTool) enableJob(args map[string]any, enable bool) *ToolResult {
 
 // ExecuteJob executes a cron job through the agent
 func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
-	// Get channel/chatID from job payload
+	// Get channel/chatID/threadID from job payload
 	channel := job.Payload.Channel
 	chatID := job.Payload.To
+	threadID := job.Payload.ThreadID
 
 	// Default values if not set
 	if channel == "" {
@@ -295,9 +299,10 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 		}
 
 		t.msgBus.PublishOutbound(bus.OutboundMessage{
-			Channel: channel,
-			ChatID:  chatID,
-			Content: output,
+			Channel:  channel,
+			ChatID:   chatID,
+			ThreadID: threadID,
+			Content:  output,
 		})
 		return "ok"
 	}
@@ -305,9 +310,10 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 	// If deliver=true, send message directly without agent processing
 	if job.Payload.Deliver {
 		t.msgBus.PublishOutbound(bus.OutboundMessage{
-			Channel: channel,
-			ChatID:  chatID,
-			Content: job.Payload.Message,
+			Channel:  channel,
+			ChatID:   chatID,
+			ThreadID: threadID,
+			Content:  job.Payload.Message,
 		})
 		return "ok"
 	}

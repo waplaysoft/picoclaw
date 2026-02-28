@@ -10,13 +10,14 @@ import (
 
 func newAddCommand(storePath func() string) *cobra.Command {
 	var (
-		name    string
-		message string
-		every   int64
-		cronExp string
-		deliver bool
-		channel string
-		to      string
+		name     string
+		message  string
+		every    int64
+		cronExp  string
+		deliver  bool
+		channel  string
+		to       string
+		threadID string
 	)
 
 	cmd := &cobra.Command{
@@ -37,7 +38,7 @@ func newAddCommand(storePath func() string) *cobra.Command {
 			}
 
 			cs := cron.NewCronService(storePath(), nil)
-			job, err := cs.AddJob(name, schedule, message, deliver, channel, to)
+			job, err := cs.AddJob(name, schedule, message, deliver, channel, to, threadID)
 			if err != nil {
 				return fmt.Errorf("error adding job: %w", err)
 			}
@@ -55,6 +56,7 @@ func newAddCommand(storePath func() string) *cobra.Command {
 	cmd.Flags().BoolVarP(&deliver, "deliver", "d", false, "Deliver response to channel")
 	cmd.Flags().StringVar(&to, "to", "", "Recipient for delivery")
 	cmd.Flags().StringVar(&channel, "channel", "", "Channel for delivery")
+	cmd.Flags().StringVar(&threadID, "thread-id", "", "Thread ID for delivery (e.g., Telegram topic)")
 
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("message")

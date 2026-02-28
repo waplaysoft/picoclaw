@@ -815,6 +815,11 @@ func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID, t
 			st.SetContext(channel, chatID, threadID)
 		}
 	}
+	if tool, ok := agent.Tools.Get("cron"); ok {
+		if ct, ok := tool.(tools.ContextualTool); ok {
+			ct.SetContext(channel, chatID, threadID)
+		}
+	}
 }
 
 // updateSessionContexts updates the session key for tools that need it.
