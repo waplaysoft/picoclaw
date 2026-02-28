@@ -25,22 +25,87 @@ import (
 
 type TelegramChannel struct {
 	*BaseChannel
-	bot          *telego.Bot
-	commands     TelegramCommander
-	config       *config.Config
-	chatIDs      map[string]int64
-	transcriber  *voice.GroqTranscriber
-	placeholders sync.Map // chatID -> messageID
-	stopThinking sync.Map // chatID -> thinkingCancel
+	bot         *telego.Bot
+	commands    TelegramCommander
+	config      *config.Config
+	chatIDs     map[string]int64
+	transcriber *voice.GroqTranscriber
+	typingCtx   sync.Map // chatID -> context.CancelFunc
 }
 
-type thinkingCancel struct {
-	fn context.CancelFunc
+// StartTyping starts a continuous typing indicator loop.
+// Returns a stop function that can be called to cancel the typing indicator.
+// The stop function is idempotent - safe to call multiple times.
+func (c *TelegramChannel) StartTyping(ctx context.Context, chatID string, threadID int) (func(), error) {
+	cid, err := parseChatID(chatID)
+	if err != nil {
+		return func() {}, err
+	}
+
+	// Stop any existing typing loop for this chat
+	c.StopTyping(chatID)
+
+	// Create context for this typing loop
+	typingCtx, cancel := context.WithCancel(ctx)
+
+	// Store cancel function
+	c.typingCtx.Store(chatID, cancel)
+
+	// Send first typing action immediately
+	c.sendTypingAction(ctx, cid, threadID)
+
+	// Start goroutine to repeat typing indicator every 4 seconds
+	go func() {
+		ticker := time.NewTicker(4 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-typingCtx.Done():
+				return
+			case <-ticker.C:
+				c.sendTypingAction(typingCtx, cid, threadID)
+			}
+		}
+	}()
+
+	// Return stop function
+	return func() {
+		c.StopTyping(chatID)
+	}, nil
 }
 
-func (c *thinkingCancel) Cancel() {
-	if c != nil && c.fn != nil {
-		c.fn()
+// StopTyping stops the typing indicator for a specific chat.
+// Safe to call multiple times (idempotent).
+func (c *TelegramChannel) StopTyping(chatID string) {
+	if cancel, ok := c.typingCtx.Load(chatID); ok {
+		if cf, ok := cancel.(context.CancelFunc); ok && cf != nil {
+			cf()
+		}
+		c.typingCtx.Delete(chatID)
+	}
+}
+
+// sendTypingAction sends a single typing indicator
+func (c *TelegramChannel) sendTypingAction(ctx context.Context, chatID int64, threadID int) {
+	if threadID != 0 {
+		params := &telego.SendChatActionParams{
+			ChatID:          tu.ID(chatID),
+			Action:          telego.ChatActionTyping,
+			MessageThreadID: threadID,
+		}
+		if err := c.bot.SendChatAction(ctx, params); err != nil {
+			logger.DebugCF("telegram", "Failed to send typing indicator (thread mode)", map[string]any{
+				"error": err.Error(),
+			})
+		}
+	} else {
+		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
+		if err != nil {
+			logger.DebugCF("telegram", "Failed to send typing indicator (DM)", map[string]any{
+				"error": err.Error(),
+			})
+		}
 	}
 }
 
@@ -75,14 +140,13 @@ func NewTelegramChannel(cfg *config.Config, bus *bus.MessageBus) (*TelegramChann
 	base := NewBaseChannel("telegram", telegramCfg, bus, telegramCfg.AllowFrom)
 
 	return &TelegramChannel{
-		BaseChannel:  base,
-		commands:     NewTelegramCommands(bot, cfg),
-		bot:          bot,
-		config:       cfg,
-		chatIDs:      make(map[string]int64),
-		transcriber:  nil,
-		placeholders: sync.Map{},
-		stopThinking: sync.Map{},
+		BaseChannel: base,
+		commands:    NewTelegramCommands(bot, cfg),
+		bot:         bot,
+		config:      cfg,
+		chatIDs:     make(map[string]int64),
+		transcriber: nil,
+		typingCtx:   sync.Map{},
 	}, nil
 }
 
@@ -214,13 +278,8 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 		return fmt.Errorf("invalid chat ID: %w", err)
 	}
 
-	// Stop thinking animation
-	if stop, ok := c.stopThinking.Load(msg.ChatID); ok {
-		if cf, ok := stop.(*thinkingCancel); ok && cf != nil {
-			cf.Cancel()
-		}
-		c.stopThinking.Delete(msg.ChatID)
-	}
+	// Stop typing indicator
+	c.StopTyping(msg.ChatID)
 
 	htmlContent := markdownToTelegramHTML(msg.Content)
 
@@ -236,25 +295,6 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 			})
 	} else {
 		messageParts = []string{htmlContent}
-	}
-
-	// If thread_id is specified, skip placeholder editing and send directly to thread
-	// Placeholder was created in main chat, but response should go to thread
-	if msg.ThreadID == "" && len(messageParts) == 1 {
-		// Try to edit placeholder (only for messages without thread_id and single part)
-		if pID, ok := c.placeholders.Load(msg.ChatID); ok {
-			c.placeholders.Delete(msg.ChatID)
-			editMsg := tu.EditMessageText(tu.ID(chatID), pID.(int), messageParts[0])
-			editMsg.ParseMode = telego.ModeHTML
-
-			if _, err = c.bot.EditMessageText(ctx, editMsg); err == nil {
-				return nil
-			}
-			// Fallback to new message if edit fails
-		}
-	} else {
-		// Clear placeholder if we're sending to thread or multiple messages
-		c.placeholders.Delete(msg.ChatID)
 	}
 
 	// Send message(s)
@@ -275,9 +315,9 @@ func (c *TelegramChannel) Send(ctx context.Context, msg bus.OutboundMessage) err
 		if _, err = c.bot.SendMessage(ctx, tgMsg); err != nil {
 			logger.ErrorCF("telegram", "Failed to send message part",
 				map[string]any{
-					"part":       i + 1,
+					"part":        i + 1,
 					"total_parts": len(messageParts),
-					"error":      err.Error(),
+					"error":       err.Error(),
 				})
 		}
 
@@ -433,57 +473,9 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		threadIDInt = message.MessageThreadID
 	}
 
-	// Send typing indicator
-	// For threads (thread_id > 1): use SendChatActionParams with MessageThreadID
-	// For main chat of forum groups (thread_id=1): use SendChatActionParams with MessageThreadID=1
-	// For DM: use simple SendChatAction
-	if threadIDInt != 0 {
-		// For threads, use SendChatActionParams with MessageThreadID
-		params := &telego.SendChatActionParams{
-			ChatID:          tu.ID(chatID),
-			Action:          telego.ChatActionTyping,
-			MessageThreadID: threadIDInt,
-		}
-		if err := c.bot.SendChatAction(ctx, params); err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action (thread mode)", map[string]any{
-				"error": err.Error(),
-			})
-		}
-	} else if message.Chat.Type != "private" {
-		// For main chat of forum groups, try with MessageThreadID=1
-		params := &telego.SendChatActionParams{
-			ChatID:          tu.ID(chatID),
-			Action:          telego.ChatActionTyping,
-			MessageThreadID: 1, // Special ID for main chat in forum groups
-		}
-		if err := c.bot.SendChatAction(ctx, params); err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action (forum main chat)", map[string]any{
-				"error": err.Error(),
-			})
-		}
-	} else {
-		// For DM, use simple SendChatAction
-		err := c.bot.SendChatAction(ctx, tu.ChatAction(tu.ID(chatID), telego.ChatActionTyping))
-		if err != nil {
-			logger.ErrorCF("telegram", "Failed to send chat action (DM)", map[string]any{
-				"error": err.Error(),
-			})
-		}
-	}
-
-	// Stop any previous thinking animation
+	// Start typing indicator (stops automatically when response is sent)
 	chatIDStr := fmt.Sprintf("%d", chatID)
-	if prevStop, ok := c.stopThinking.Load(chatIDStr); ok {
-		if cf, ok := prevStop.(*thinkingCancel); ok && cf != nil {
-			cf.Cancel()
-		}
-	}
-
-	// Create cancel function for thinking state
-	_, thinkCancel := context.WithTimeout(ctx, 5*time.Minute)
-	c.stopThinking.Store(chatIDStr, &thinkingCancel{fn: thinkCancel})
-
-	// Note: We don't send "Thinking..." placeholder anymore - native typing indicator is sufficient
+	_, _ = c.StartTyping(ctx, chatIDStr, threadIDInt)
 
 	peerKind := "direct"
 	peerID := fmt.Sprintf("%d", user.ID)
