@@ -47,18 +47,19 @@ type AgentLoop struct {
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey       string // Session identifier for history/context
-	Channel          string // Target channel for tool execution
-	ChatID           string // Target chat ID for tool execution
-	ThreadID         string // Target thread ID (for Telegram topics)
-	UserMessage      string // User message content (may include prefix)
-	DefaultResponse  string // Response when LLM returns empty
-	EnableSummary    bool   // Whether to trigger summarization
-	SendResponse     bool   // Whether to send response via bus
-	NoHistory        bool   // If true, don't load session history (for heartbeat)
-	SentContent      string // Content already sent via message tool (for session storage)
-	IsSubagentResult bool   // If true, this is a subagent result (save as "tool" role, not "user")
-	MessageRole      string // Role to use when saving message to session (default: "user")
+	SessionKey                 string // Session identifier for history/context
+	Channel                    string // Target channel for tool execution
+	ChatID                     string // Target chat ID for tool execution
+	ThreadID                   string // Target thread ID (for Telegram topics)
+	UserMessage                string // User message content (may include prefix)
+	DefaultResponse            string // Response when LLM returns empty
+	EnableSummary              bool   // Whether to trigger summarization
+	SendResponse               bool   // Whether to send response via bus
+	NoHistory                  bool   // If true, don't load session history (for heartbeat)
+	SentContent                string // Content already sent via message tool (for session storage)
+	IsSubagentResult           bool   // If true, this is a subagent result (save as "tool" role, not "user")
+	MessageRole                string // Role to use when saving message to session (default: "user")
+	SuppressIntermediateOutput bool   // If true, don't send intermediate tool results (for cron deliver=false)
 }
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
@@ -248,12 +249,12 @@ func (al *AgentLoop) RecordLastChatID(chatID string) error {
 }
 
 func (al *AgentLoop) ProcessDirect(ctx context.Context, content, sessionKey string) (string, error) {
-	return al.ProcessDirectWithChannel(ctx, content, sessionKey, "cli", "direct", "user")
+	return al.ProcessDirectWithChannel(ctx, content, sessionKey, "cli", "direct", "user", false)
 }
 
 func (al *AgentLoop) ProcessDirectWithChannel(
 	ctx context.Context,
-	content, sessionKey, channel, chatID, role string,
+	content, sessionKey, channel, chatID, role string, suppressIntermediateOutput bool,
 ) (string, error) {
 	msg := bus.InboundMessage{
 		Channel:    channel,
@@ -264,7 +265,7 @@ func (al *AgentLoop) ProcessDirectWithChannel(
 	}
 
 	// Process with the specified role
-	result, err := al.processMessageWithRole(ctx, msg, role)
+	result, err := al.processMessageWithRole(ctx, msg, role, suppressIntermediateOutput)
 	return result, err
 }
 
@@ -355,7 +356,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 
 // processMessageWithRole is like processMessage but allows specifying a custom message role.
 // This is used for cron jobs and other system-initiated messages that should not be saved as "user".
-func (al *AgentLoop) processMessageWithRole(ctx context.Context, msg bus.InboundMessage, role string) (string, error) {
+func (al *AgentLoop) processMessageWithRole(ctx context.Context, msg bus.InboundMessage, role string, suppressIntermediateOutput bool) (string, error) {
 	// Add message preview to log (show full content for error messages)
 	var logContent string
 	if strings.Contains(msg.Content, "Error:") || strings.Contains(msg.Content, "error") {
@@ -413,15 +414,16 @@ func (al *AgentLoop) processMessageWithRole(ctx context.Context, msg bus.Inbound
 		})
 
 	return al.runAgentLoop(ctx, agent, processOptions{
-		SessionKey:      sessionKey,
-		Channel:         msg.Channel,
-		ChatID:          msg.ChatID,
-		ThreadID:        msg.ThreadID,
-		UserMessage:     msg.Content,
-		DefaultResponse: "I've completed processing but have no response to give.",
-		EnableSummary:   true,
-		SendResponse:    true, // Send response for cron-triggered messages
-		MessageRole:     role,
+		SessionKey:                 sessionKey,
+		Channel:                    msg.Channel,
+		ChatID:                     msg.ChatID,
+		ThreadID:                   msg.ThreadID,
+		UserMessage:                msg.Content,
+		DefaultResponse:            "I've completed processing but have no response to give.",
+		EnableSummary:              true,
+		SendResponse:               true, // Send response for cron-triggered messages
+		MessageRole:                role,
+		SuppressIntermediateOutput: suppressIntermediateOutput,
 	})
 }
 
@@ -835,7 +837,8 @@ func (al *AgentLoop) runLLMIteration(
 
 			// Send ForUser content to user immediately if not Silent
 			// Only send if ForUser contains user-friendly content (not internal tool output)
-			if !toolResult.Silent && toolResult.ForUser != "" && opts.SendResponse {
+			// Skip intermediate output if SuppressIntermediateOutput is set (e.g., cron deliver=false)
+			if !toolResult.Silent && toolResult.ForUser != "" && opts.SendResponse && !opts.SuppressIntermediateOutput {
 				// Don't send if ForUser looks like internal tool output (file content, code, etc.)
 				isInternalOutput := strings.Contains(toolResult.ForUser, "func(") ||
 					strings.Contains(toolResult.ForUser, "package ") ||

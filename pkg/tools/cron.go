@@ -14,7 +14,7 @@ import (
 
 // JobExecutor is the interface for executing cron jobs through the agent
 type JobExecutor interface {
-	ProcessDirectWithChannel(ctx context.Context, content, sessionKey, channel, chatID, role string) (string, error)
+	ProcessDirectWithChannel(ctx context.Context, content, sessionKey, channel, chatID, role string, suppressIntermediateOutput bool) (string, error)
 }
 
 // CronTool provides scheduling capabilities for the agent
@@ -321,8 +321,8 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 	// For deliver=false, process through agent (for complex tasks)
 	sessionKey := fmt.Sprintf("cron-%s", job.ID)
 
-	// Call agent with job's message using "user" role so the response is sent to the user.
-	// The message is still saved with a distinct marker in session for debugging.
+	// Call agent with job's message. Use "user" role to ensure response is sent,
+	// but suppress intermediate tool output to avoid spamming the user with raw data.
 	response, err := t.executor.ProcessDirectWithChannel(
 		ctx,
 		job.Payload.Message,
@@ -330,6 +330,7 @@ func (t *CronTool) ExecuteJob(ctx context.Context, job *cron.CronJob) string {
 		channel,
 		chatID,
 		"user", // Use "user" role to ensure response is sent
+		true,   // Suppress intermediate output (only send final response)
 	)
 	if err != nil {
 		return fmt.Sprintf("Error: %v", err)

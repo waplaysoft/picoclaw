@@ -607,6 +607,7 @@ func TestAgentLoop_ContextExhaustionRetry(t *testing.T) {
 		"test",
 		"test-chat",
 		"user",
+		false, // suppressIntermediateOutput
 	)
 	if err != nil {
 		t.Fatalf("Expected success after retry, got error: %v", err)
