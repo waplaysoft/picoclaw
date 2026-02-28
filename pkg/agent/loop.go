@@ -58,6 +58,7 @@ type processOptions struct {
 	NoHistory        bool   // If true, don't load session history (for heartbeat)
 	SentContent      string // Content already sent via message tool (for session storage)
 	IsSubagentResult bool   // If true, this is a subagent result (save as "tool" role, not "user")
+	MessageRole      string // Role to use when saving message to session (default: "user")
 }
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
@@ -247,12 +248,12 @@ func (al *AgentLoop) RecordLastChatID(chatID string) error {
 }
 
 func (al *AgentLoop) ProcessDirect(ctx context.Context, content, sessionKey string) (string, error) {
-	return al.ProcessDirectWithChannel(ctx, content, sessionKey, "cli", "direct")
+	return al.ProcessDirectWithChannel(ctx, content, sessionKey, "cli", "direct", "user")
 }
 
 func (al *AgentLoop) ProcessDirectWithChannel(
 	ctx context.Context,
-	content, sessionKey, channel, chatID string,
+	content, sessionKey, channel, chatID, role string,
 ) (string, error) {
 	msg := bus.InboundMessage{
 		Channel:    channel,
@@ -262,7 +263,9 @@ func (al *AgentLoop) ProcessDirectWithChannel(
 		SessionKey: sessionKey,
 	}
 
-	return al.processMessage(ctx, msg)
+	// Process with the specified role
+	result, err := al.processMessageWithRole(ctx, msg, role)
+	return result, err
 }
 
 // ProcessHeartbeat processes a heartbeat request without session history.
@@ -346,6 +349,79 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
 		SendResponse:    false,
+		MessageRole:     "user", // Default role for regular messages
+	})
+}
+
+// processMessageWithRole is like processMessage but allows specifying a custom message role.
+// This is used for cron jobs and other system-initiated messages that should not be saved as "user".
+func (al *AgentLoop) processMessageWithRole(ctx context.Context, msg bus.InboundMessage, role string) (string, error) {
+	// Add message preview to log (show full content for error messages)
+	var logContent string
+	if strings.Contains(msg.Content, "Error:") || strings.Contains(msg.Content, "error") {
+		logContent = msg.Content // Full content for errors
+	} else {
+		logContent = utils.Truncate(msg.Content, 80)
+	}
+	logger.InfoCF("agent", fmt.Sprintf("Processing message from %s:%s: %s", msg.Channel, msg.SenderID, logContent),
+		map[string]any{
+			"channel":     msg.Channel,
+			"chat_id":     msg.ChatID,
+			"sender_id":   msg.SenderID,
+			"session_key": msg.SessionKey,
+			"thread_id":   msg.ThreadID,
+			"role":        role,
+		})
+
+	// Route system messages to processSystemMessage
+	if msg.Channel == "system" {
+		return al.processSystemMessage(ctx, msg)
+	}
+
+	// Check for commands
+	if response, handled := al.handleCommand(ctx, msg); handled {
+		return response, nil
+	}
+
+	// Route to determine agent and session key
+	route := al.registry.ResolveRoute(routing.RouteInput{
+		Channel:    msg.Channel,
+		AccountID:  msg.Metadata["account_id"],
+		Peer:       extractPeer(msg),
+		ParentPeer: extractParentPeer(msg),
+		GuildID:    msg.Metadata["guild_id"],
+		TeamID:     msg.Metadata["team_id"],
+		ThreadID:   msg.ThreadID,
+	})
+
+	agent, ok := al.registry.GetAgent(route.AgentID)
+	if !ok {
+		agent = al.registry.GetDefaultAgent()
+	}
+
+	// Use routed session key, but honor pre-set agent-scoped keys (for ProcessDirect/cron)
+	sessionKey := route.SessionKey
+	if msg.SessionKey != "" && strings.HasPrefix(msg.SessionKey, "agent:") {
+		sessionKey = msg.SessionKey
+	}
+
+	logger.InfoCF("agent", "Routed message",
+		map[string]any{
+			"agent_id":    agent.ID,
+			"session_key": sessionKey,
+			"matched_by":  route.MatchedBy,
+		})
+
+	return al.runAgentLoop(ctx, agent, processOptions{
+		SessionKey:      sessionKey,
+		Channel:         msg.Channel,
+		ChatID:          msg.ChatID,
+		ThreadID:        msg.ThreadID,
+		UserMessage:     msg.Content,
+		DefaultResponse: "I've completed processing but have no response to give.",
+		EnableSummary:   true,
+		SendResponse:    false,
+		MessageRole:     role,
 	})
 }
 
@@ -454,7 +530,12 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 		}
 		agent.Sessions.AddToolMessage(opts.SessionKey, opts.UserMessage, toolCallID)
 	} else {
-		agent.Sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
+		// Use specified role, default to "user"
+		role := opts.MessageRole
+		if role == "" {
+			role = "user"
+		}
+		agent.Sessions.AddMessage(opts.SessionKey, role, opts.UserMessage)
 	}
 
 	// 4. Run LLM iteration loop
