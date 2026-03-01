@@ -1250,6 +1250,23 @@ body {
   background: var(--color-text-secondary);
 }
 
+#messageInput::-webkit-scrollbar {
+  width: 6px;
+}
+
+#messageInput::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#messageInput::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+#messageInput::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
 /* Error messages */
 .message.error .message-content {
   background: rgba(var(--color-error-rgb), 0.1);
