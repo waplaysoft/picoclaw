@@ -155,17 +155,18 @@ func (h *Handlers) handleStreamChat(w http.ResponseWriter, ctx context.Context, 
 	}
 
 	// Send response in chunks for simulated streaming
+	runes := []rune(response)
 	chunkSize := 50
-	for i := 0; i < len(response); i += chunkSize {
+	for i := 0; i < len(runes); i += chunkSize {
 		end := i + chunkSize
-		if end > len(response) {
-			end = len(response)
+		if end > len(runes) {
+			end = len(runes)
 		}
-		chunk := response[i:end]
+		chunk := string(runes[i:end])
 
 		chunkData := map[string]interface{}{
 			"content": chunk,
-			"done":    end >= len(response),
+			"done":    end >= len(runes),
 		}
 		chunkJSON, _ := json.Marshal(chunkData)
 		fmt.Fprintf(w, "data: %s\n\n", chunkJSON)
