@@ -109,8 +109,8 @@ func NewAgentInstance(
 		// Find Mistral API key from model_list for embeddings
 		var mistralAPIKey string
 		for _, modelCfg := range cfg.ModelList {
-			if modelCfg.ModelName == "mistral-embed" || 
-			   (modelCfg.Model != "" && strings.Contains(modelCfg.Model, "mistral-embed")) {
+			if modelCfg.ModelName == "mistral-embed" ||
+				(modelCfg.Model != "" && strings.Contains(modelCfg.Model, "mistral-embed")) {
 				mistralAPIKey = modelCfg.APIKey
 				break
 			}

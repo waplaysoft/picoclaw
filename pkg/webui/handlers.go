@@ -10,22 +10,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/agent"
 	"github.com/sipeed/picoclaw/pkg/providers"
+	"github.com/sipeed/picoclaw/pkg/session"
 )
 
 type Handlers struct {
-	agentLoop    *agent.AgentLoop
-	sessionMutex sync.Map // map[string]*sync.Mutex
+	agentLoop      *agent.AgentLoop
+	sessionManager *session.SessionManager
+	sessionMutex   sync.Map // map[string]*sync.Mutex
 }
 
-func NewHandlers(agentLoop *agent.AgentLoop) *Handlers {
+func NewHandlers(agentLoop *agent.AgentLoop, sessionManager *session.SessionManager) *Handlers {
 	return &Handlers{
-		agentLoop: agentLoop,
+		agentLoop:      agentLoop,
+		sessionManager: sessionManager,
 	}
 }
 
@@ -42,8 +46,10 @@ type ChatResponse struct {
 }
 
 type SessionInfo struct {
-	Key       string    `json:"key"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Key          string    `json:"key"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	MessageCount int       `json:"message_count"`
+	Preview      string    `json:"preview"`
 }
 
 type SessionsResponse struct {
@@ -51,7 +57,9 @@ type SessionsResponse struct {
 }
 
 type HistoryResponse struct {
-	Messages []providers.Message `json:"messages"`
+	Messages   []providers.Message `json:"messages"`
+	TotalCount int                 `json:"total_count"`
+	HasMore    bool                `json:"has_more"`
 }
 
 func (h *Handlers) getSessionMutex(session string) *sync.Mutex {
@@ -188,15 +196,36 @@ func (h *Handlers) SessionsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For now, return empty list (sessions are managed by agentLoop internally)
+	// Get all sessions from session manager
+	sessions := h.getAllSessions()
+
 	resp := SessionsResponse{
-		Sessions: []SessionInfo{},
+		Sessions: sessions,
 	}
 
 	json.NewEncoder(w).Encode(resp)
 }
 
-// HistoryHandler returns message history for a session
+// getAllSessions retrieves all sessions with metadata
+func (h *Handlers) getAllSessions() []SessionInfo {
+	if h.sessionManager == nil {
+		return []SessionInfo{}
+	}
+
+	summaries := h.sessionManager.GetAllSessions()
+	infos := make([]SessionInfo, len(summaries))
+	for i, summary := range summaries {
+		infos[i] = SessionInfo{
+			Key:          summary.Key,
+			UpdatedAt:    summary.Updated,
+			MessageCount: summary.MessageCount,
+			Preview:      summary.Preview,
+		}
+	}
+	return infos
+}
+
+// HistoryHandler returns message history for a session with pagination
 func (h *Handlers) HistoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
@@ -207,11 +236,57 @@ func (h *Handlers) HistoryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get history from agentLoop sessions
-	// This requires accessing the agent's session storage
-	// For now, return empty history
+	// Parse pagination parameters
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 50
+	}
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if offset < 0 {
+		offset = 0
+	}
+
+	if h.sessionManager == nil {
+		resp := HistoryResponse{
+			Messages:   []providers.Message{},
+			TotalCount: 0,
+			HasMore:    false,
+		}
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	// Get full history and filter for UI display
+	fullHistory := h.sessionManager.GetHistory(session)
+	filteredHistory := filterMessagesForUI(fullHistory)
+	totalCount := len(filteredHistory)
+
+	// Calculate slice bounds for pagination
+	// Offset starts from 0 (oldest messages)
+	start := offset
+	end := offset + limit
+
+	if start >= totalCount {
+		resp := HistoryResponse{
+			Messages:   []providers.Message{},
+			TotalCount: totalCount,
+			HasMore:    false,
+		}
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	if end > totalCount {
+		end = totalCount
+	}
+
+	messages := filteredHistory[start:end]
+	hasMore := end < totalCount
+
 	resp := HistoryResponse{
-		Messages: []providers.Message{},
+		Messages:   messages,
+		TotalCount: totalCount,
+		HasMore:    hasMore,
 	}
 
 	json.NewEncoder(w).Encode(resp)
@@ -235,4 +310,28 @@ func (h *Handlers) ReadyHandler(w http.ResponseWriter, r *http.Request) {
 func extractPeer(content string) string {
 	// Simple extraction - in real usage would come from channel metadata
 	return strings.Split(content, "\n")[0]
+}
+
+// filterMessagesForUI filters messages for display in the WebUI.
+// Only user messages and final assistant responses (without tool_calls) are shown.
+// Tool and system messages are hidden.
+func filterMessagesForUI(messages []providers.Message) []providers.Message {
+	filtered := make([]providers.Message, 0, len(messages))
+	
+	for _, msg := range messages {
+		// Skip tool and system messages
+		if msg.Role == "tool" || msg.Role == "system" {
+			continue
+		}
+		
+		// Skip assistant messages with tool calls (intermediate reasoning steps)
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			continue
+		}
+		
+		// Allow user messages and assistant messages without tool calls
+		filtered = append(filtered, msg)
+	}
+	
+	return filtered
 }

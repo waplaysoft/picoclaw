@@ -200,7 +200,9 @@ func gatewayCmd(debug bool) error {
 	// Start WebUI server if enabled
 	var webuiServer *webui.Server
 	if cfg.WebUI.Enabled {
-		webuiHandlers := webui.NewHandlers(agentLoop)
+		// Get SessionManager from the default agent
+		sessionManager := agentLoop.GetSessionManager()
+		webuiHandlers := webui.NewHandlers(agentLoop, sessionManager)
 		webuiServer = webui.NewServer(&webui.Config{
 			Host:    cfg.WebUI.Host,
 			Port:    cfg.WebUI.Port,

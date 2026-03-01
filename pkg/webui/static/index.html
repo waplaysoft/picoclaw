@@ -12,9 +12,19 @@
         <!-- Header -->
         <div class="header">
             <h1>PicoClaw Chat</h1>
-            <div class="status" id="status">
-                <span class="status-dot"></span>
-                <span class="status-text">Connecting...</span>
+            <div class="header-controls">
+                <select id="sessionSelect" class="session-select" title="Select session">
+                    <option value="">New Session</option>
+                </select>
+                <button id="loadSessionBtn" class="load-session-btn" title="Reload session">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+                <div class="status" id="status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
             </div>
         </div>
 
@@ -37,12 +47,12 @@
 
                 <!-- Input field wrapper -->
                 <div class="input-field-wrapper">
-                    <textarea 
-                        id="messageInput" 
-                        placeholder="Задайте уточняющий вопрос"
+                    <textarea
+                        id="messageInput"
+                        placeholder="Ask a follow-up question"
                         rows="1"
                     ></textarea>
-                    
+
                     <!-- Model selector -->
                     <div class="model-selector" id="modelSelector">
                         <span>Claude Sonnet 4.6</span>

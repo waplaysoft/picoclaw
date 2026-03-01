@@ -1,7 +1,7 @@
 // PicoClaw WebUI Client
 class PicoClawWebUI {
     constructor() {
-        this.session = null;
+        this.session = localStorage.getItem('picoclaw_session') || null;
         this.isStreaming = false;
         this.messagesContainer = document.getElementById('messages');
         this.messageInput = document.getElementById('messageInput');
@@ -9,15 +9,34 @@ class PicoClawWebUI {
         this.attachBtn = document.getElementById('attachBtn');
         this.statusEl = document.getElementById('status');
         this.sessionInfoEl = document.getElementById('sessionInfo');
+        this.sessionSelectEl = document.getElementById('sessionSelect');
+        this.loadSessionBtn = document.getElementById('loadSessionBtn');
+        
+        // Pagination state
+        this.pagination = {
+            offset: 0,
+            limit: 50,
+            totalCount: 0,
+            hasMore: false,
+            isLoading: false
+        };
+        
+        // Messages cache
+        this.messages = [];
+        
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindEvents();
         this.checkStatus();
         this.autoResizeTextarea();
         this.initMarkdown();
         this.addCopyButtons();
+        
+        // Load sessions list and restore session
+        await this.loadSessionsList();
+        await this.restoreSession();
     }
 
     initMarkdown() {
@@ -30,7 +49,7 @@ class PicoClawWebUI {
 
     bindEvents() {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
-        
+
         this.messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -57,6 +76,25 @@ class PicoClawWebUI {
             if (messageBtn) {
                 this.copyMessage(messageBtn);
             }
+        });
+
+        // Session selector change
+        if (this.sessionSelectEl) {
+            this.sessionSelectEl.addEventListener('change', (e) => {
+                this.switchSession(e.target.value);
+            });
+        }
+        
+        // Load session button
+        if (this.loadSessionBtn) {
+            this.loadSessionBtn.addEventListener('click', () => {
+                this.restoreSession();
+            });
+        }
+
+        // Scroll handler for lazy pagination
+        this.messagesContainer.addEventListener('scroll', () => {
+            this.handleScroll();
         });
     }
 
@@ -103,8 +141,6 @@ class PicoClawWebUI {
         const messageEl = btn.closest('.message');
         const markdown = messageEl.dataset.markdown;
 
-        console.log('Copy message clicked', { markdown, hasDataset: !!messageEl.dataset.markdown });
-
         if (!markdown) {
             console.error('No markdown content found');
             btn.querySelector('.copy-text').textContent = 'Error';
@@ -146,6 +182,159 @@ class PicoClawWebUI {
     setStatus(status, text) {
         this.statusEl.className = 'status ' + status;
         this.statusEl.querySelector('.status-text').textContent = text;
+    }
+
+    // Session management
+    async loadSessionsList() {
+        if (!this.sessionSelectEl) return;
+        
+        try {
+            const response = await fetch('/api/sessions');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            this.sessionSelectEl.innerHTML = '<option value="">New Session</option>';
+            
+            data.sessions.forEach(session => {
+                const option = document.createElement('option');
+                option.value = session.key;
+                const preview = session.preview ? ` - ${session.preview}` : '';
+                option.textContent = `${session.key.slice(-12)} (${session.message_count})${preview}`;
+                if (session.key === this.session) {
+                    option.selected = true;
+                }
+                this.sessionSelectEl.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load sessions:', error);
+        }
+    }
+
+    async restoreSession() {
+        if (!this.session) {
+            this.updateSessionInfo();
+            return;
+        }
+
+        // Reset pagination
+        this.pagination = {
+            offset: 0,
+            limit: 50,
+            totalCount: 0,
+            hasMore: false,
+            isLoading: false
+        };
+        this.messages = [];
+        this.messagesContainer.innerHTML = '';
+
+        try {
+            const response = await fetch(`/api/history?session=${encodeURIComponent(this.session)}&limit=${this.pagination.limit}&offset=${this.pagination.offset}`);
+            if (!response.ok) {
+                console.error('Failed to load history');
+                return;
+            }
+
+            const data = await response.json();
+            this.pagination.totalCount = data.total_count;
+            this.pagination.hasMore = data.has_more;
+            this.messages = data.messages;
+
+            // Render messages
+            data.messages.forEach(msg => {
+                this.addMessageToContainer(msg.content, msg.role, false);
+            });
+
+            this.updateSessionInfo();
+            
+            // Scroll to bottom only if there are messages and we're not paginating
+            if (data.messages.length > 0) {
+                // Use requestAnimationFrame to ensure DOM is updated
+                requestAnimationFrame(() => {
+                    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+                });
+            }
+        } catch (error) {
+            console.error('Failed to restore session:', error);
+        }
+    }
+
+    switchSession(sessionKey) {
+        this.session = sessionKey || null;
+        if (sessionKey) {
+            localStorage.setItem('picoclaw_session', sessionKey);
+        } else {
+            localStorage.removeItem('picoclaw_session');
+        }
+        this.restoreSession();
+    }
+
+    updateSessionInfo() {
+        if (this.session) {
+            this.sessionInfoEl.textContent = `Session: ${this.session.slice(-8)}`;
+        } else {
+            this.sessionInfoEl.textContent = 'New Session';
+        }
+    }
+
+    handleScroll() {
+        // Check if scrolled to top
+        if (this.messagesContainer.scrollTop === 0 && 
+            this.pagination.hasMore && 
+            !this.pagination.isLoading) {
+            this.loadOlderMessages();
+        }
+    }
+
+    async loadOlderMessages() {
+        this.pagination.isLoading = true;
+        
+        // Remember current scroll position
+        const previousScrollTop = this.messagesContainer.scrollTop;
+        const previousScrollHeight = this.messagesContainer.scrollHeight;
+        
+        // Show loading indicator
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'loading-indicator';
+        loadingEl.textContent = 'Loading older messages...';
+        this.messagesContainer.insertBefore(loadingEl, this.messagesContainer.firstChild);
+
+        try {
+            const offset = this.pagination.offset + this.pagination.limit;
+            const response = await fetch(`/api/history?session=${encodeURIComponent(this.session)}&limit=${this.pagination.limit}&offset=${offset}`);
+            if (!response.ok) {
+                throw new Error('Failed to load older messages');
+            }
+
+            const data = await response.json();
+            
+            // Remove loading indicator
+            loadingEl.remove();
+
+            if (data.messages.length > 0) {
+                // Prepend messages in reverse order (oldest first)
+                const fragment = document.createDocumentFragment();
+                data.messages.reverse().forEach(msg => {
+                    const el = this.createMessageElement(msg.content, msg.role);
+                    fragment.appendChild(el);
+                });
+                
+                // Insert at beginning
+                this.messagesContainer.insertBefore(fragment, this.messagesContainer.firstChild);
+                
+                // Maintain scroll position by adjusting for new content height
+                const newScrollHeight = this.messagesContainer.scrollHeight;
+                const heightDifference = newScrollHeight - previousScrollHeight;
+                this.messagesContainer.scrollTop = previousScrollTop + heightDifference;
+            }
+
+            this.pagination.offset = offset;
+            this.pagination.hasMore = data.has_more;
+        } catch (error) {
+            console.error('Error loading older messages:', error);
+            loadingEl.remove();
+        } finally {
+            this.pagination.isLoading = false;
+        }
     }
 
     async sendMessage() {
@@ -204,7 +393,9 @@ class PicoClawWebUI {
                             // Store session from first message
                             if (data.session && !this.session) {
                                 this.session = data.session;
-                                this.sessionInfoEl.textContent = `Session: ${this.session.slice(-8)}`;
+                                localStorage.setItem('picoclaw_session', this.session);
+                                this.updateSessionInfo();
+                                await this.loadSessionsList();
                             }
 
                             // Handle error
@@ -229,6 +420,8 @@ class PicoClawWebUI {
                             if (data.done) {
                                 this.isStreaming = false;
                                 this.sendBtn.disabled = false;
+                                // Reload sessions list to update preview
+                                await this.loadSessionsList();
                             }
                         } catch (e) {
                             console.error('Parse error:', e);
@@ -249,6 +442,13 @@ class PicoClawWebUI {
     }
 
     addMessage(content, type, isError = false) {
+        const messageEl = this.createMessageElement(content, type, isError);
+        this.messagesContainer.appendChild(messageEl);
+        this.scrollToBottom();
+        return messageEl;
+    }
+
+    createMessageElement(content, type, isError = false) {
         const messageEl = document.createElement('div');
         messageEl.className = `message ${type}${isError ? ' error' : ''}`;
 
@@ -269,9 +469,12 @@ class PicoClawWebUI {
             this.createMessageCopyButton(messageEl);
         }
 
-        this.messagesContainer.appendChild(messageEl);
-        this.scrollToBottom();
         return messageEl;
+    }
+
+    addMessageToContainer(content, type, isError = false) {
+        const messageEl = this.createMessageElement(content, type, isError);
+        this.messagesContainer.appendChild(messageEl);
     }
 
     createMessageCopyButton(messageEl) {
@@ -296,7 +499,7 @@ class PicoClawWebUI {
     showTypingIndicator() {
         const typingEl = document.createElement('div');
         typingEl.className = 'message assistant typing-message';
-        
+
         typingEl.innerHTML = `
             <div class="message-wrapper">
                 <div class="message-content">
@@ -308,7 +511,7 @@ class PicoClawWebUI {
                 </div>
             </div>
         `;
-        
+
         this.messagesContainer.appendChild(typingEl);
         this.scrollToBottom();
         return typingEl;

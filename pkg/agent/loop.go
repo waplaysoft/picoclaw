@@ -23,6 +23,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/routing"
+	"github.com/sipeed/picoclaw/pkg/session"
 	"github.com/sipeed/picoclaw/pkg/skills"
 	"github.com/sipeed/picoclaw/pkg/state"
 	"github.com/sipeed/picoclaw/pkg/tools"
@@ -130,10 +131,10 @@ func registerSharedTools(
 		messageTool := tools.NewMessageTool()
 		messageTool.SetSendCallback(func(channel, chatID, content, threadID string) error {
 			msgBus.PublishOutbound(bus.OutboundMessage{
-				Channel: channel,
-				ChatID:  chatID,
+				Channel:  channel,
+				ChatID:   chatID,
 				ThreadID: threadID,
-				Content: content,
+				Content:  content,
 			})
 			return nil
 		})
@@ -203,8 +204,8 @@ func (al *AgentLoop) Run(ctx context.Context) error {
 					al.bus.PublishOutbound(bus.OutboundMessage{
 						Channel:  msg.Channel,
 						ChatID:   msg.ChatID,
-						ThreadID:  msg.ThreadID,
-						Content:   response,
+						ThreadID: msg.ThreadID,
+						Content:  response,
 					})
 				}
 			}
@@ -579,8 +580,8 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 				"content":   utils.Truncate(finalContent, 100),
 			})
 		al.bus.PublishOutbound(bus.OutboundMessage{
-			Channel: opts.Channel,
-			ChatID:  opts.ChatID,
+			Channel:  opts.Channel,
+			ChatID:   opts.ChatID,
 			ThreadID: opts.ThreadID,
 			Content:  finalContent,
 		})
@@ -699,10 +700,10 @@ func (al *AgentLoop) runLLMIteration(
 
 				if retry == 0 && !constants.IsInternalChannel(opts.Channel) {
 					al.bus.PublishOutbound(bus.OutboundMessage{
-						Channel: opts.Channel,
-						ChatID:  opts.ChatID,
+						Channel:  opts.Channel,
+						ChatID:   opts.ChatID,
 						ThreadID: opts.ThreadID,
-						Content: "Context window exceeded. Compressing history and retrying...",
+						Content:  "Context window exceeded. Compressing history and retrying...",
 					})
 				}
 
@@ -847,10 +848,10 @@ func (al *AgentLoop) runLLMIteration(
 
 				if !isInternalOutput {
 					al.bus.PublishOutbound(bus.OutboundMessage{
-						Channel: opts.Channel,
-						ChatID:  opts.ChatID,
+						Channel:  opts.Channel,
+						ChatID:   opts.ChatID,
 						ThreadID: opts.ThreadID,
-						Content: toolResult.ForUser,
+						Content:  toolResult.ForUser,
 					})
 					logger.DebugCF("agent", "Sent tool result to user",
 						map[string]any{
@@ -1441,4 +1442,14 @@ func extractParentPeer(msg bus.InboundMessage) *routing.RoutePeer {
 		return nil
 	}
 	return &routing.RoutePeer{Kind: parentKind, ID: parentID}
+}
+
+// GetSessionManager returns the SessionManager from the default agent.
+// This is used by WebUI and other external interfaces to access session history.
+func (al *AgentLoop) GetSessionManager() *session.SessionManager {
+	defaultAgent := al.registry.GetDefaultAgent()
+	if defaultAgent == nil {
+		return nil
+	}
+	return defaultAgent.Sessions
 }

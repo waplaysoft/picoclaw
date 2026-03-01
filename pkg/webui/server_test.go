@@ -12,11 +12,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHandlers_ChatHandler_EmptyMessage(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	reqBody := ChatRequest{
 		Message: "",
@@ -34,7 +35,7 @@ func TestHandlers_ChatHandler_EmptyMessage(t *testing.T) {
 }
 
 func TestHandlers_ChatHandler_InvalidJSON(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/chat", bytes.NewReader([]byte("invalid")))
 	req.Header.Set("Content-Type", "application/json")
@@ -46,7 +47,7 @@ func TestHandlers_ChatHandler_InvalidJSON(t *testing.T) {
 }
 
 func TestHandlers_ChatHandler_OPTIONS(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodOptions, "/api/chat", nil)
 	w := httptest.NewRecorder()
@@ -60,7 +61,7 @@ func TestHandlers_ChatHandler_OPTIONS(t *testing.T) {
 }
 
 func TestHandlers_ChatHandler_WrongMethod(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/chat", nil)
 	w := httptest.NewRecorder()
@@ -71,7 +72,7 @@ func TestHandlers_ChatHandler_WrongMethod(t *testing.T) {
 }
 
 func TestHandlers_ReadyHandler(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/ready", nil)
 	w := httptest.NewRecorder()
@@ -83,7 +84,7 @@ func TestHandlers_ReadyHandler(t *testing.T) {
 }
 
 func TestHandlers_SessionsHandler(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/sessions", nil)
 	w := httptest.NewRecorder()
@@ -94,7 +95,7 @@ func TestHandlers_SessionsHandler(t *testing.T) {
 }
 
 func TestHandlers_SessionsHandler_Delete(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/sessions", nil)
 	w := httptest.NewRecorder()
@@ -105,7 +106,7 @@ func TestHandlers_SessionsHandler_Delete(t *testing.T) {
 }
 
 func TestHandlers_HistoryHandler_MissingSession(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/history", nil)
 	w := httptest.NewRecorder()
@@ -117,7 +118,7 @@ func TestHandlers_HistoryHandler_MissingSession(t *testing.T) {
 }
 
 func TestHandlers_HistoryHandler_Success(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/history?session=test", nil)
 	w := httptest.NewRecorder()
@@ -133,7 +134,7 @@ func TestServer_NewServer(t *testing.T) {
 		Port:    18791,
 		Enabled: true,
 	}
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	server := NewServer(cfg, handlers)
 
@@ -143,7 +144,7 @@ func TestServer_NewServer(t *testing.T) {
 }
 
 func TestHandlers_SessionMutex(t *testing.T) {
-	handlers := NewHandlers(nil)
+	handlers := NewHandlers(nil, nil)
 
 	// Get mutex for same session - should return same instance
 	mu1 := handlers.getSessionMutex("session-1")
@@ -155,4 +156,22 @@ func TestHandlers_SessionMutex(t *testing.T) {
 	// but we can't directly compare pointer equality for different keys
 	// as they may have same underlying structure
 	_ = mu3 // Use mu3 to avoid unused variable
+}
+
+func TestFilterMessagesForUI(t *testing.T) {
+	messages := []providers.Message{
+		{Role: "user", Content: "Hello"},
+		{Role: "assistant", Content: "Hi there!"},
+		{Role: "assistant", Content: "Let me check", ToolCalls: []providers.ToolCall{{ID: "1"}}},
+		{Role: "tool", Content: "Result", ToolCallID: "1"},
+		{Role: "assistant", Content: "The weather is sunny"},
+		{Role: "system", Content: "Internal"},
+	}
+
+	filtered := filterMessagesForUI(messages)
+
+	assert.Equal(t, 3, len(filtered))
+	assert.Equal(t, "user", filtered[0].Role)
+	assert.Equal(t, "assistant", filtered[1].Role)
+	assert.Equal(t, "The weather is sunny", filtered[2].Content)
 }

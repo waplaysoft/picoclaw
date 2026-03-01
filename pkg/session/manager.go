@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/storage"
+	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
 type Session struct {
@@ -352,4 +354,46 @@ func (sm *SessionManager) SearchSimilarMessages(sessionKey, query string, limit 
 	}
 
 	return sm.messageStore.SearchSimilarMessages(sessionKey, query, limit)
+}
+
+// SessionSummary contains summary information about a session
+type SessionSummary struct {
+	Key          string    `json:"key"`
+	MessageCount int       `json:"message_count"`
+	Created      time.Time `json:"created"`
+	Updated      time.Time `json:"updated"`
+	Preview      string    `json:"preview"`
+}
+
+// GetAllSessions returns a list of all sessions with their metadata
+func (sm *SessionManager) GetAllSessions() []SessionSummary {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	summaries := make([]SessionSummary, 0, len(sm.sessions))
+	for key, session := range sm.sessions {
+		// Get preview (last user message, truncated)
+		preview := ""
+		for i := len(session.Messages) - 1; i >= 0; i-- {
+			if session.Messages[i].Role == "user" && session.Messages[i].Content != "" {
+				preview = utils.Truncate(session.Messages[i].Content, 100)
+				break
+			}
+		}
+
+		summaries = append(summaries, SessionSummary{
+			Key:          key,
+			MessageCount: len(session.Messages),
+			Created:      session.Created,
+			Updated:      session.Updated,
+			Preview:      preview,
+		})
+	}
+
+	// Sort by UpdatedAt (newest first)
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].Updated.After(summaries[j].Updated)
+	})
+
+	return summaries
 }

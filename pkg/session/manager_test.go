@@ -81,7 +81,7 @@ func TestSave_RejectsPathTraversal(t *testing.T) {
 // not stored to Qdrant, while final assistant responses are stored.
 func TestAddFullMessage_FiltersIntermediateAssistantMessages(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create SessionManager with Qdrant disabled (we just test the filtering logic)
 	sm := NewSessionManagerWithConfig(tmpDir, config.StorageConfig{
 		Qdrant: config.QdrantConfig{
@@ -141,12 +141,12 @@ func TestAddFullMessage_FiltersIntermediateAssistantMessages(t *testing.T) {
 	// - assistant with tool calls: filtered (not stored to Qdrant)
 	// - tool messages: filtered (not stored to Qdrant)
 	// - assistant without tool calls: stored
-	
+
 	// Count messages that would be stored to Qdrant
 	qdrantStoredCount := 0
 	for _, msg := range history {
 		shouldStore := true
-		
+
 		// Apply same filtering logic as in AddFullMessage
 		if msg.Role == "tool" || msg.Role == "system" {
 			shouldStore = false
@@ -157,7 +157,7 @@ func TestAddFullMessage_FiltersIntermediateAssistantMessages(t *testing.T) {
 		if msg.Content == "" {
 			shouldStore = false
 		}
-		
+
 		if shouldStore {
 			qdrantStoredCount++
 		}
