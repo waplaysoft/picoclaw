@@ -1150,7 +1150,7 @@ body {
   padding: var(--space-12) var(--space-16);
   background: var(--color-surface);
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-base);
   color: var(--color-text);
   font-size: var(--font-size-md);
   font-family: var(--font-family-base);
