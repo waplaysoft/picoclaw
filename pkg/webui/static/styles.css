@@ -885,7 +885,7 @@ body {
 }
 
 .message-content pre {
-  background: var(--color-background);
+  background: var(--color-secondary);
   padding: var(--space-12);
   border-radius: var(--radius-sm);
   overflow-x: auto;
@@ -901,6 +901,11 @@ body {
   background: var(--color-secondary);
   padding: var(--space-2) var(--space-6);
   border-radius: var(--radius-sm);
+}
+
+.message-content pre code {
+  background: transparent;
+  padding: 0;
 }
 
 .message-content p {
