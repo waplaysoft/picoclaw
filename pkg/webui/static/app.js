@@ -16,6 +16,15 @@ class PicoClawWebUI {
         this.bindEvents();
         this.checkStatus();
         this.autoResizeTextarea();
+        this.initMarkdown();
+    }
+
+    initMarkdown() {
+        // Configure marked for better rendering
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+        });
     }
 
     bindEvents() {
@@ -130,7 +139,7 @@ class PicoClawWebUI {
                                     assistantMessageEl = this.addMessage('', 'assistant');
                                 }
                                 content += data.content;
-                                assistantMessageEl.querySelector('.message-content').textContent = content;
+                                assistantMessageEl.querySelector('.message-content').innerHTML = marked.parse(content);
                                 this.scrollToBottom();
                             }
 
@@ -160,16 +169,27 @@ class PicoClawWebUI {
     addMessage(content, type, isError = false) {
         const messageEl = document.createElement('div');
         messageEl.className = `message ${type}${isError ? ' error' : ''}`;
-        
+
+        // Escape HTML for user messages, render markdown for assistant
+        const contentHtml = type === 'assistant' && !isError
+            ? marked.parse(content)
+            : this.escapeHtml(content);
+
         messageEl.innerHTML = `
             <div class="message-wrapper">
-                <div class="message-content">${this.escapeHtml(content)}</div>
+                <div class="message-content">${contentHtml}</div>
             </div>
         `;
-        
+
         this.messagesContainer.appendChild(messageEl);
         this.scrollToBottom();
         return messageEl;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     showTypingIndicator() {
@@ -195,12 +215,6 @@ class PicoClawWebUI {
 
     scrollToBottom() {
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 

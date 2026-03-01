@@ -911,6 +911,81 @@ body {
   margin-bottom: 0;
 }
 
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+  margin-top: var(--space-24);
+  margin-bottom: var(--space-12);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.message-content h1 { font-size: var(--font-size-xl); }
+.message-content h2 { font-size: var(--font-size-lg); }
+.message-content h3 { font-size: var(--font-size-md); }
+
+.message-content ul,
+.message-content ol {
+  margin-bottom: var(--space-12);
+  padding-left: var(--space-24);
+}
+
+.message-content li {
+  margin-bottom: var(--space-4);
+}
+
+.message-content blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: var(--space-16);
+  margin: var(--space-12) 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.message-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--space-12) 0;
+}
+
+.message-content th,
+.message-content td {
+  border: 1px solid var(--color-border);
+  padding: var(--space-8) var(--space-12);
+  text-align: left;
+}
+
+.message-content th {
+  background: var(--color-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.message-content strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+.message-content em {
+  font-style: italic;
+}
+
+.message-content a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.message-content a:hover {
+  color: var(--color-primary-hover);
+}
+
+.message-content hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-16) 0;
+}
+
 /* Typing indicator */
 .typing {
   display: flex;
