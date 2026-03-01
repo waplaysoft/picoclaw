@@ -871,6 +871,7 @@ body {
 }
 
 .message.assistant .message-content {
+  max-width: 100%;
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-card-border);
