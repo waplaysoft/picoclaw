@@ -17,6 +17,7 @@ class PicoClawWebUI {
         this.checkStatus();
         this.autoResizeTextarea();
         this.initMarkdown();
+        this.addCopyButtons();
     }
 
     initMarkdown() {
@@ -43,6 +44,53 @@ class PicoClawWebUI {
         this.attachBtn.addEventListener('click', () => {
             console.log('Attach functionality coming soon');
         });
+
+        // Copy code button event delegation
+        this.messagesContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('copy-btn') || e.target.closest('.copy-btn')) {
+                const btn = e.target.classList.contains('copy-btn') ? e.target : e.target.closest('.copy-btn');
+                this.copyCode(btn);
+            }
+        });
+    }
+
+    addCopyButtons() {
+        // Add copy buttons to existing code blocks
+        this.messagesContainer.querySelectorAll('pre').forEach((pre) => {
+            if (!pre.querySelector('.copy-btn')) {
+                this.createCopyButton(pre);
+            }
+        });
+    }
+
+    createCopyButton(pre) {
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.innerHTML = `
+            <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span class="copy-text">Copy</span>
+        `;
+        pre.appendChild(btn);
+    }
+
+    async copyCode(btn) {
+        const pre = btn.closest('pre');
+        const code = pre.querySelector('code');
+        const text = code ? code.textContent : pre.textContent;
+
+        try {
+            await navigator.clipboard.writeText(text);
+            btn.classList.add('copied');
+            btn.querySelector('.copy-text').textContent = 'Copied!';
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.querySelector('.copy-text').textContent = 'Copy';
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
     }
 
     autoResizeTextarea() {
@@ -140,6 +188,7 @@ class PicoClawWebUI {
                                 }
                                 content += data.content;
                                 assistantMessageEl.querySelector('.message-content').innerHTML = marked.parse(content);
+                                this.addCopyButtons();
                                 this.scrollToBottom();
                             }
 
