@@ -1,5 +1,4 @@
 // PicoClaw WebUI Client
-
 class PicoClawWebUI {
     constructor() {
         this.session = null;
@@ -7,9 +6,9 @@ class PicoClawWebUI {
         this.messagesContainer = document.getElementById('messages');
         this.messageInput = document.getElementById('messageInput');
         this.sendBtn = document.getElementById('sendBtn');
+        this.attachBtn = document.getElementById('attachBtn');
         this.statusEl = document.getElementById('status');
         this.sessionInfoEl = document.getElementById('sessionInfo');
-
         this.init();
     }
 
@@ -21,13 +20,20 @@ class PicoClawWebUI {
 
     bindEvents() {
         this.sendBtn.addEventListener('click', () => this.sendMessage());
+        
         this.messageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
             }
         });
+
         this.messageInput.addEventListener('input', () => this.autoResizeTextarea());
+
+        // Placeholder for attach button
+        this.attachBtn.addEventListener('click', () => {
+            console.log('Attach functionality coming soon');
+        });
     }
 
     autoResizeTextarea() {
@@ -61,6 +67,7 @@ class PicoClawWebUI {
         this.addMessage(message, 'user');
         this.messageInput.value = '';
         this.autoResizeTextarea();
+
         this.isStreaming = true;
         this.sendBtn.disabled = true;
 
@@ -139,14 +146,12 @@ class PicoClawWebUI {
                 }
             }
 
-            if (!this.isStreaming) {
-                this.isStreaming = false;
-                this.sendBtn.disabled = false;
-            }
-
         } catch (error) {
-            typingEl.remove();
+            if (typingEl && typingEl.parentNode) {
+                typingEl.remove();
+            }
             this.addMessage('Error: ' + error.message, 'assistant', true);
+        } finally {
             this.isStreaming = false;
             this.sendBtn.disabled = false;
         }
@@ -155,9 +160,13 @@ class PicoClawWebUI {
     addMessage(content, type, isError = false) {
         const messageEl = document.createElement('div');
         messageEl.className = `message ${type}${isError ? ' error' : ''}`;
+        
         messageEl.innerHTML = `
-            <div class="message-content">${this.escapeHtml(content)}</div>
+            <div class="message-wrapper">
+                <div class="message-content">${this.escapeHtml(content)}</div>
+            </div>
         `;
+        
         this.messagesContainer.appendChild(messageEl);
         this.scrollToBottom();
         return messageEl;
@@ -166,15 +175,19 @@ class PicoClawWebUI {
     showTypingIndicator() {
         const typingEl = document.createElement('div');
         typingEl.className = 'message assistant typing-message';
+        
         typingEl.innerHTML = `
-            <div class="message-content">
-                <div class="typing">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+            <div class="message-wrapper">
+                <div class="message-content">
+                    <div class="typing">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
                 </div>
             </div>
         `;
+        
         this.messagesContainer.appendChild(typingEl);
         this.scrollToBottom();
         return typingEl;

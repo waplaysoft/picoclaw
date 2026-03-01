@@ -8,43 +8,62 @@
 </head>
 <body>
     <div class="container">
-        <header class="header">
-            <h1>🦞 PicoClaw</h1>
+        <!-- Header -->
+        <div class="header">
+            <h1>PicoClaw Chat</h1>
             <div class="status" id="status">
                 <span class="status-dot"></span>
                 <span class="status-text">Connecting...</span>
             </div>
-        </header>
+        </div>
 
-        <main class="chat-container">
+        <!-- Chat -->
+        <div class="chat-container">
             <div class="messages" id="messages">
-                <div class="message assistant">
-                    <div class="message-content">
-                        Hello! I'm PicoClaw, your personal AI assistant. How can I help you today?
+                <!-- Messages will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Input -->
+        <div class="input-container">
+            <div class="input-wrapper">
+                <!-- Attach button -->
+                <button class="attach-btn" id="attachBtn" title="Attach file">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </button>
+
+                <!-- Input field wrapper -->
+                <div class="input-field-wrapper">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Задайте уточняющий вопрос"
+                        rows="1"
+                    ></textarea>
+                    
+                    <!-- Model selector -->
+                    <div class="model-selector" id="modelSelector">
+                        <span>Claude Sonnet 4.6</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                     </div>
                 </div>
-            </div>
 
-            <div class="input-container">
-                <textarea 
-                    id="messageInput" 
-                    placeholder="Type your message..." 
-                    rows="1"
-                    autofocus
-                ></textarea>
-                <button id="sendBtn" class="send-btn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="22" y1="2" x2="11" y2="13"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                <!-- Send button -->
+                <button class="send-btn" id="sendBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
                     </svg>
                 </button>
             </div>
-        </main>
+        </div>
 
-        <footer class="footer">
-            <span>PicoClaw WebUI</span>
-            <span class="session-info" id="sessionInfo"></span>
-        </footer>
+        <!-- Footer -->
+        <div class="footer">
+            <span class="session-info" id="sessionInfo">No session</span>
+        </div>
     </div>
 
     <script src="app.js"></script>
