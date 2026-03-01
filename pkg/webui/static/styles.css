@@ -867,6 +867,7 @@ body {
   line-height: var(--line-height-normal);
   word-wrap: break-word;
   font-size: var(--font-size-md);
+  white-space: pre-wrap;
 }
 
 .message.assistant .message-content {
