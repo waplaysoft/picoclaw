@@ -52,11 +52,17 @@ function parseMarkdown(text) {
 
     function closeUntil(indent) {
         while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
-            listResult.push(`</${stack.pop().type}>`);
+            const top = stack.pop();
+            // Закрываем li, если он был открыт
+            if (top.hasOpenLi) {
+                listResult.push(`</li>`);
+            }
+            listResult.push(`</${top.type}>`);
         }
     }
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/);
         const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
 
@@ -69,21 +75,33 @@ function parseMarkdown(text) {
             closeUntil(indent + 1);
 
             if (stack.length === 0 || stack[stack.length - 1].indent < indent) {
-                stack.push({ type, indent });
+                stack.push({ type, indent, hasOpenLi: false });
                 listResult.push(`<${type}>`);
             }
 
-            listResult.push(`<li>${content}</li>`);
+            // Если на текущем уровне уже был открыт li, закрываем его
+            const currentLevel = stack[stack.length - 1];
+            if (currentLevel.hasOpenLi) {
+                listResult.push(`</li>`);
+            }
+            
+            listResult.push(`<li>${content}`);
+            currentLevel.hasOpenLi = true; // Отмечаем, что у нас есть незакрытый li
         } else {
             const trimmed = line.trim();
-            // Пустая строка внутри активного списка — пропускаем, не закрываем стек
             if (trimmed === '' && stack.length > 0) {
-                // не добавляем ничего, просто пропускаем
                 continue;
             }
-            closeUntil(0);
+            
+            const isNestedHtml = /^<\/?(ul|ol|li|p|br|h[1-6]|pre|blockquote)/.test(trimmed) 
+                || trimmed.startsWith('<ul>')
+                || trimmed.startsWith('<ol>');
+                
+            if (!isNestedHtml) {
+                closeUntil(0);
+            }
             listResult.push(line);
-                }
+        }
     }
     closeUntil(0);
 
@@ -106,15 +124,15 @@ function parseMarkdown(text) {
         return '<p>' + block + '</p>';
     }).join('\n');
 
-    // Удаляем пустые параграфы, которые могли случайно сгенерироваться
+    // Оставляем только удаление пустых параграфов
     html = html.replace(/<p>\s*<\/p>/g, '');
-
-    // Удаляем переносы строк между блочными элементами списков
-    html = html.replace(/<\/ol>\s*<ol>/g, '</ol><ol>');
-    html = html.replace(/<\/ul>\s*<ul>/g, '</ul><ul>');
-    html = html.replace(/<\/ol>\s*<ul>/g, '</ol><ul>');
-    html = html.replace(/<\/ul>\s*<ol>/g, '</ul><ol>');
     
+    // Убираем переносы строк внутри li перед закрывающим тегом
+    html = html.replace(/\n<\/li>/g, '</li>');
+
+    html = html.replace(/\n<ul>/g, '<ul>');
+    html = html.replace(/\n<ol>/g, '<ol>');
+
     return html;
 }
 

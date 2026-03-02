@@ -1026,20 +1026,12 @@ body {
 .message-content h5 { font-size: var(--font-size-md); }
 .message-content h6 { font-size: var(--font-size-sm); }
 
-.message-content p {
-  margin: var(--space-8) 0;
-}
-
 .message-content p:first-child {
   margin-top: 0;
 }
 
 .message-content p:last-child {
   margin-bottom: 0;
-}
-
-.message-content li {
-  margin-bottom: var(--space-2);
 }
 
 .message-content p:has(+ ul),
@@ -1078,6 +1070,14 @@ body {
   font-style: italic;
 }
 
+.message-content p:empty {
+    display: none;
+}
+
+.message-content p {
+  margin: var(--space-4) 0;
+}
+
 .message-content p {
   margin-bottom: var(--space-4);
 }
@@ -1105,12 +1105,8 @@ body {
 .message-content ul,
 .message-content ol {
   margin-top: 0;
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
   padding-left: var(--space-24);
-}
-
-.message-content li {
-  margin-bottom: var(--space-2);
 }
 
 .message-content blockquote {
@@ -1586,29 +1582,43 @@ body {
     gap: var(--space-12);
   }
 
-  /* Убираем отступы у ВСЕХ списков внутри сообщений */
-  .message-content ul,
-  .message-content ol {
+  /* === */
+
+    /* 1. Убираем лишний отступ снизу у вложенных списков */
+  .message-content li > ul,
+  .message-content li > ol {
       margin-top: 4px !important;
-      margin-bottom: 4px !important;
-      padding-left: 20px !important; /* Отступ кружочков/цифр */
+      margin-bottom: 0 !important; /* Убиваем отступ после вложенного списка */
   }
 
-  /* Элементы списка: убираем лишнюю высоту */
+  /* 2. Делаем отступы между li минимальными */
   .message-content li {
-      margin-top: 2px !important;
-      margin-bottom: 2px !important;
-      line-height: 1.4 !important;
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
   }
 
-  /* Если в <li> попадает <p>, убираем у него отступ, иначе он его раздует */
-  .message-content li p {
-      margin: 0 !important;
+  /* 3. Гарантируем, что последний элемент внутри li не добавляет лишнего снизу */
+  .message-content li > :last-child {
+      margin-bottom: 0 !important;
   }
 
-  /* Убираем нижний отступ у параграфа, за которым сразу идет список */
-  .message-content p:has(+ ul),
-  .message-content p:has(+ ol) {
-      margin-bottom: 2px !important;
+  .message-content li ul,
+  .message-content li ol,
+  .message-content li > ul,
+  .message-content li > ol {
+      margin-bottom: 0 !important;
+      margin-top: 0 !important;
+  }
+
+  /* last */
+
+  .message-content li {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .message-content li > ul {
+      margin-top: 0;
+      margin-bottom: 0;
   }
 }
