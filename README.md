@@ -449,6 +449,134 @@ picoclaw gateway
 
 </details>
 
+## 🌐 WebUI
+
+PicoClaw includes a built-in **web-based chat interface** for easy interaction with your AI assistant through a browser.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Modern UI** | Clean, responsive design inspired by Perplexity |
+| **Session Management** | Create, switch, and manage multiple conversation sessions |
+| **Real-time Chat** | Send messages and receive AI responses instantly |
+| **Message History** | Browse conversation history with pagination |
+| **Markdown Support** | Rich text rendering with code highlighting |
+| **Streaming Response** | Simulated streaming for smooth text display |
+
+### Quick Start
+
+**1. Enable WebUI** in your config (`~/.picoclaw/config.json`):
+
+```json
+{
+  "webui": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8080
+  }
+}
+```
+
+**2. Start the Gateway**:
+
+```bash
+picoclaw gateway
+```
+
+You'll see:
+```
+✓ WebUI available at http://127.0.0.1:8080
+```
+
+**3. Open your browser** and navigate to `http://localhost:8080`
+
+### Configuration Options
+
+| Option | Default | Environment Variable | Description |
+|--------|---------|---------------------|-------------|
+| `enabled` | `false` | `PICOCLAW_WEBUI_ENABLED` | Enable/disable WebUI server |
+| `host` | `127.0.0.1` | `PICOCLAW_WEBUI_HOST` | Host address to bind |
+| `port` | `8080` | `PICOCLAW_WEBUI_PORT` | Port number |
+
+**Example: Access from network**
+
+```json
+{
+  "webui": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080
+  }
+}
+```
+
+> ⚠️ **Security Note**: Binding to `0.0.0.0` exposes the WebUI to your network. Use with appropriate firewall rules or behind a reverse proxy.
+
+### Docker Compose
+
+To expose the WebUI port in Docker:
+
+```yaml
+# docker-compose.yml
+services:
+  picoclaw-gateway:
+    ports:
+      - "8080:8080"  # WebUI
+```
+
+Then access at `http://localhost:8080`
+
+### API Endpoints
+
+The WebUI exposes REST API endpoints for programmatic access:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | Send a chat message |
+| `/api/sessions` | GET | List all sessions |
+| `/api/sessions` | DELETE | Clear all sessions |
+| `/api/history?session=<key>&limit=50&offset=0` | GET | Get session message history |
+| `/api/ready` | GET | Health check endpoint |
+
+**Example: Send a chat message**
+
+```bash
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Hello, what is 2+2?",
+    "session": "my-session-123",
+    "stream": false
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "content": "2+2 equals 4.",
+  "session": "my-session-123",
+  "done": true
+}
+```
+
+### Session Management
+
+- **New Session**: Select "New Session" from the dropdown or refresh the page
+- **Switch Session**: Use the session dropdown to switch between conversations
+- **Session Persistence**: Sessions are stored in `~/.picoclaw/workspace/sessions/`
+- **Session Isolation**: Each session maintains independent conversation history
+
+### UI Components
+
+- **Header**: Session selector, reload button, connection status
+- **Chat Area**: Message display with Markdown rendering
+- **Input Area**: Text input with model selector and send button
+- **Footer**: Current session info
+
+> **Note**: The WebUI runs as part of the gateway process. When the gateway stops, the WebUI server also stops.
+
 ## ⚙️ Configuration
 
 Config file: `~/.picoclaw/config.json`
