@@ -152,15 +152,32 @@ func (h *Handlers) handleStreamChat(w http.ResponseWriter, ctx context.Context, 
 	fmt.Fprintf(w, "data: %s\n\n", sessionJSON)
 	flusher.Flush()
 
-	// For now, use simple response (streaming from LLM would require provider changes)
+	// Send thinking_start event to show typing indicator
+	thinkingStartData := map[string]string{"type": "thinking_start"}
+	thinkingStartJSON, _ := json.Marshal(thinkingStartData)
+	fmt.Fprintf(w, "data: %s\n\n", thinkingStartJSON)
+	flusher.Flush()
+
+	// Process the message
 	response, err := h.agentLoop.ProcessDirectWithChannel(ctx, message, session, "webui", session, "user", false)
 	if err != nil {
+		// Send thinking_end before error
+		thinkingEndData := map[string]string{"type": "thinking_end"}
+		thinkingEndJSON, _ := json.Marshal(thinkingEndData)
+		fmt.Fprintf(w, "data: %s\n\n", thinkingEndJSON)
+
 		errorData := map[string]string{"error": err.Error()}
 		errorJSON, _ := json.Marshal(errorData)
 		fmt.Fprintf(w, "data: %s\n\n", errorJSON)
 		flusher.Flush()
 		return
 	}
+
+	// Send thinking_end event to hide typing indicator
+	thinkingEndData := map[string]string{"type": "thinking_end"}
+	thinkingEndJSON, _ := json.Marshal(thinkingEndData)
+	fmt.Fprintf(w, "data: %s\n\n", thinkingEndJSON)
+	flusher.Flush()
 
 	// Send response in chunks for simulated streaming
 	runes := []rune(response)

@@ -479,7 +479,7 @@ class PicoClawWebUI {
         this.sendBtn.disabled = true;
 
         // Show typing indicator
-        const typingEl = this.showTypingIndicator();
+        let typingEl = this.showTypingIndicator();
 
         try {
             const response = await fetch('/api/chat', {
@@ -497,9 +497,6 @@ class PicoClawWebUI {
             if (!response.ok) {
                 throw new Error('Request failed');
             }
-
-            // Remove typing indicator
-            typingEl.remove();
 
             // Handle SSE stream
             const reader = response.body.getReader();
@@ -519,6 +516,20 @@ class PicoClawWebUI {
                         try {
                             const data = JSON.parse(line.slice(6));
 
+                            // Handle thinking events
+                            if (data.type === 'thinking_start') {
+                                // Keep typing indicator visible
+                                continue;
+                            }
+                            if (data.type === 'thinking_end') {
+                                // Remove typing indicator when thinking is done
+                                if (typingEl && typingEl.parentNode) {
+                                    typingEl.remove();
+                                    typingEl = null;
+                                }
+                                continue;
+                            }
+
                             // Store session from first message
                             if (data.session && !this.session) {
                                 this.session = data.session;
@@ -529,6 +540,11 @@ class PicoClawWebUI {
 
                             // Handle error
                             if (data.error) {
+                                // Remove typing indicator if still present
+                                if (typingEl && typingEl.parentNode) {
+                                    typingEl.remove();
+                                    typingEl = null;
+                                }
                                 this.addMessage('Error: ' + data.error, 'assistant', true);
                                 break;
                             }
@@ -567,6 +583,10 @@ class PicoClawWebUI {
         } finally {
             this.isStreaming = false;
             this.sendBtn.disabled = false;
+            // Ensure typing indicator is removed
+            if (typingEl && typingEl.parentNode) {
+                typingEl.remove();
+            }
         }
     }
 
