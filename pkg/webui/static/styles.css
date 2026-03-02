@@ -1007,6 +1007,78 @@ body {
   padding: 0;
 }
 
+/* Markdown styles */
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+  margin: var(--space-16) 0 var(--space-8);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.message-content h1 { font-size: var(--font-size-2xl); }
+.message-content h2 { font-size: var(--font-size-xl); }
+.message-content h3 { font-size: var(--font-size-lg); }
+.message-content h4 { font-size: var(--font-size-md); }
+.message-content h5 { font-size: var(--font-size-md); }
+.message-content h6 { font-size: var(--font-size-sm); }
+
+.message-content p {
+  margin: var(--space-8) 0;
+}
+
+.message-content p:first-child {
+  margin-top: 0;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content ul,
+.message-content ol {
+  margin: var(--space-8) 0;
+  padding-left: var(--space-24);
+}
+
+.message-content li {
+  margin: var(--space-4) 0;
+}
+
+.message-content blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: var(--space-12);
+  margin: var(--space-12) 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.message-content hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-16) 0;
+}
+
+.message-content a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.message-content a:hover {
+  color: var(--color-primary-hover);
+}
+
+.message-content strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+.message-content em {
+  font-style: italic;
+}
+
 .message-content p {
   margin-bottom: var(--space-4);
 }

@@ -1,5 +1,86 @@
 // PicoClaw WebUI Client
 
+// Simple Markdown parser
+function parseMarkdown(text) {
+    if (!text) return '';
+    
+    let html = text;
+    
+    // Escape HTML first
+    html = html
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    
+    // Code blocks (``` ... ```)
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        return '<pre><code class="language-' + lang + '">' + code.trim() + '</code></pre>';
+    });
+    
+    // Inline code (` ... `)
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Bold (** ... ** or __ ... __)
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    
+    // Italic (* ... * or _ ... _)
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+    
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    
+    // Headers (# ... ######)
+    html = html.replace(/^######\s+(.+)$/gm, '<h6>$1</h6>');
+    html = html.replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>');
+    html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+    
+    // Blockquotes (> ...)
+    html = html.replace(/^&gt;\s*(.+)$/gm, '<blockquote>$1</blockquote>');
+    
+    // Horizontal rule (--- or ***)
+    html = html.replace(/^([-*_]){3,}$/gm, '<hr>');
+    
+    // Unordered lists (- or * at start of line)
+    html = html.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
+    // Wrap consecutive li elements in ul
+    html = html.replace(/(<li>.*<\/li>\n?)+/g, function(match) {
+        return '<ul>' + match + '</ul>';
+    });
+    
+    // Ordered lists (1. 2. 3. at start of line)
+    html = html.replace(/^\d+\.\s+(.+)$/gm, '<oli>$1</oli>');
+    // Wrap consecutive oli elements in ol
+    html = html.replace(/(<oli>.*<\/oli>\n?)+/g, function(match) {
+        return '<ol>' + match.replace(/<\/?oli>/g, function(tag) {
+            return tag.replace('oli', 'li');
+        }) + '</ol>';
+    });
+    
+    // Line breaks (convert newlines to <br> for non-block elements)
+    // Split by double newline for paragraphs
+    const blocks = html.split(/\n\n+/);
+    html = blocks.map(block => {
+        block = block.trim();
+        if (!block) return '';
+        
+        // Don't wrap if it's already a block element
+        if (/^<(h[1-6]|ul|ol|li|pre|blockquote|hr|div|p)/.test(block)) {
+            return block;
+        }
+        
+        // Convert single newlines to <br> within the block
+        block = block.replace(/\n/g, '<br>');
+        return '<p>' + block + '</p>';
+    }).join('\n');
+    
+    return html;
+}
+
 class PicoClawWebUI {
 
     constructor() {
@@ -403,7 +484,7 @@ class PicoClawWebUI {
                                     assistantMessageEl = this.addMessage('', 'assistant');
                                 }
                                 content += data.content;
-                                assistantMessageEl.querySelector('.message-content').textContent = content;
+                                assistantMessageEl.querySelector('.message-content').innerHTML = parseMarkdown(content);
                                 assistantMessageEl.dataset.markdown = content;
                                 this.addCopyButtons();
                                 this.scrollToBottom();
@@ -453,13 +534,14 @@ class PicoClawWebUI {
 
         const contentEl = messageEl.querySelector('.message-content');
         
-        // Use textContent for plain text (no markdown)
-        contentEl.textContent = content;
-
-        // Store raw content for assistant messages
+        // Parse markdown for assistant messages, plain text for user
         if (type === 'assistant' && !isError) {
+            contentEl.innerHTML = parseMarkdown(content);
             messageEl.dataset.markdown = content;
             this.createMessageCopyButton(messageEl);
+        } else {
+            // Escape HTML and convert newlines to <br> for user messages
+            contentEl.textContent = content;
         }
 
         return messageEl;
