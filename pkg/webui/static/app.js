@@ -1,5 +1,14 @@
 // PicoClaw WebUI Client
+
+// const renderer = new marked.Renderer();
+// renderer.listitem = function (item) {
+//     return `<li>${item.text}</li>\n`;
+// };
+
+// marked.use({ renderer });
+
 class PicoClawWebUI {
+
     constructor() {
         this.session = localStorage.getItem('picoclaw_session') || null;
         this.isStreaming = false;
@@ -11,7 +20,7 @@ class PicoClawWebUI {
         this.sessionInfoEl = document.getElementById('sessionInfo');
         this.sessionSelectEl = document.getElementById('sessionSelect');
         this.loadSessionBtn = document.getElementById('loadSessionBtn');
-        
+
         // Pagination state
         this.pagination = {
             offset: 0,
@@ -20,10 +29,10 @@ class PicoClawWebUI {
             hasMore: false,
             isLoading: false
         };
-        
+
         // Messages cache
         this.messages = [];
-        
+
         this.init();
     }
 
@@ -33,7 +42,7 @@ class PicoClawWebUI {
         this.autoResizeTextarea();
         this.initMarkdown();
         this.addCopyButtons();
-        
+
         // Load sessions list and restore session
         await this.loadSessionsList();
         await this.restoreSession();
@@ -84,7 +93,7 @@ class PicoClawWebUI {
                 this.switchSession(e.target.value);
             });
         }
-        
+
         // Load session button
         if (this.loadSessionBtn) {
             this.loadSessionBtn.addEventListener('click', () => {
@@ -187,14 +196,14 @@ class PicoClawWebUI {
     // Session management
     async loadSessionsList() {
         if (!this.sessionSelectEl) return;
-        
+
         try {
             const response = await fetch('/api/sessions');
             if (!response.ok) return;
-            
+
             const data = await response.json();
             this.sessionSelectEl.innerHTML = '<option value="">New Session</option>';
-            
+
             data.sessions.forEach(session => {
                 const option = document.createElement('option');
                 option.value = session.key;
@@ -245,7 +254,7 @@ class PicoClawWebUI {
             });
 
             this.updateSessionInfo();
-            
+
             // Scroll to bottom only if there are messages and we're not paginating
             if (data.messages.length > 0) {
                 // Use requestAnimationFrame to ensure DOM is updated
@@ -278,8 +287,8 @@ class PicoClawWebUI {
 
     handleScroll() {
         // Check if scrolled to top
-        if (this.messagesContainer.scrollTop === 0 && 
-            this.pagination.hasMore && 
+        if (this.messagesContainer.scrollTop === 0 &&
+            this.pagination.hasMore &&
             !this.pagination.isLoading) {
             this.loadOlderMessages();
         }
@@ -287,11 +296,11 @@ class PicoClawWebUI {
 
     async loadOlderMessages() {
         this.pagination.isLoading = true;
-        
+
         // Remember current scroll position
         const previousScrollTop = this.messagesContainer.scrollTop;
         const previousScrollHeight = this.messagesContainer.scrollHeight;
-        
+
         // Show loading indicator
         const loadingEl = document.createElement('div');
         loadingEl.className = 'loading-indicator';
@@ -306,7 +315,7 @@ class PicoClawWebUI {
             }
 
             const data = await response.json();
-            
+
             // Remove loading indicator
             loadingEl.remove();
 
@@ -317,10 +326,10 @@ class PicoClawWebUI {
                     const el = this.createMessageElement(msg.content, msg.role);
                     fragment.appendChild(el);
                 });
-                
+
                 // Insert at beginning
                 this.messagesContainer.insertBefore(fragment, this.messagesContainer.firstChild);
-                
+
                 // Maintain scroll position by adjusting for new content height
                 const newScrollHeight = this.messagesContainer.scrollHeight;
                 const heightDifference = newScrollHeight - previousScrollHeight;
