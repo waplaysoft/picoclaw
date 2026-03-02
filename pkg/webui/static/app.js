@@ -1,12 +1,5 @@
 // PicoClaw WebUI Client
 
-// const renderer = new marked.Renderer();
-// renderer.listitem = function (item) {
-//     return `<li>${item.text}</li>\n`;
-// };
-
-// marked.use({ renderer });
-
 class PicoClawWebUI {
 
     constructor() {
@@ -40,20 +33,11 @@ class PicoClawWebUI {
         this.bindEvents();
         this.checkStatus();
         this.autoResizeTextarea();
-        this.initMarkdown();
         this.addCopyButtons();
 
         // Load sessions list and restore session
         await this.loadSessionsList();
         await this.restoreSession();
-    }
-
-    initMarkdown() {
-        // Configure marked for better rendering
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-        });
     }
 
     bindEvents() {
@@ -419,7 +403,7 @@ class PicoClawWebUI {
                                     assistantMessageEl = this.addMessage('', 'assistant');
                                 }
                                 content += data.content;
-                                assistantMessageEl.querySelector('.message-content').innerHTML = marked.parse(content);
+                                assistantMessageEl.querySelector('.message-content').textContent = content;
                                 assistantMessageEl.dataset.markdown = content;
                                 this.addCopyButtons();
                                 this.scrollToBottom();
@@ -461,18 +445,18 @@ class PicoClawWebUI {
         const messageEl = document.createElement('div');
         messageEl.className = `message ${type}${isError ? ' error' : ''}`;
 
-        // Escape HTML for user messages, render markdown for assistant
-        const contentHtml = type === 'assistant' && !isError
-            ? marked.parse(content)
-            : this.escapeHtml(content);
-
         messageEl.innerHTML = `
             <div class="message-wrapper">
-                <div class="message-content">${contentHtml}</div>
+                <div class="message-content"></div>
             </div>
         `;
 
-        // Store raw markdown for assistant messages
+        const contentEl = messageEl.querySelector('.message-content');
+        
+        // Use textContent for plain text (no markdown)
+        contentEl.textContent = content;
+
+        // Store raw content for assistant messages
         if (type === 'assistant' && !isError) {
             messageEl.dataset.markdown = content;
             this.createMessageCopyButton(messageEl);
@@ -497,12 +481,6 @@ class PicoClawWebUI {
             <span class="copy-text">Copy</span>
         `;
         wrapper.appendChild(btn);
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     showTypingIndicator() {
