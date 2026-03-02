@@ -21,7 +21,9 @@ func DefaultConfig() *Config {
 		},
 		Bindings: []AgentBinding{},
 		Session: SessionConfig{
-			DMScope: "main",
+			// Default to per-channel-peer DM sessions for proper isolation
+			// e.g., "agent:main:telegram:direct:334555241" instead of "agent:main:main"
+			DMScope: "per-channel-peer",
 		},
 		Channels: ChannelsConfig{
 			WhatsApp: WhatsAppConfig{

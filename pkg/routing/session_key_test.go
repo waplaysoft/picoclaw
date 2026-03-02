@@ -115,6 +115,20 @@ func TestBuildAgentPeerSessionKey_IdentityLink(t *testing.T) {
 	}
 }
 
+func TestBuildAgentPeerSessionKey_TelegramDM_Default(t *testing.T) {
+	// Test the default per-channel-peer behavior for Telegram DM
+	got := BuildAgentPeerSessionKey(SessionKeyParams{
+		AgentID: "main",
+		Channel: "telegram",
+		Peer:    &RoutePeer{Kind: "direct", ID: "334555241"},
+		DMScope: DMScopePerChannelPeer,
+	}, "")
+	want := "agent:main:telegram:direct:334555241"
+	if got != want {
+		t.Errorf("TelegramDM_Default = %q, want %q", got, want)
+	}
+}
+
 func TestParseAgentSessionKey_Valid(t *testing.T) {
 	parsed := ParseAgentSessionKey("agent:sales:telegram:direct:user123")
 	if parsed == nil {

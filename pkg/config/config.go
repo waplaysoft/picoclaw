@@ -164,7 +164,15 @@ type AgentBinding struct {
 }
 
 type SessionConfig struct {
+	// DMScope controls DM session isolation granularity:
+	// - "main": All DMs share one session (agent:main:main)
+	// - "per-peer": Per-user DM sessions (agent:main:direct:<user_id>)
+	// - "per-channel-peer": Per-channel+user DM sessions (agent:main:telegram:direct:<user_id>)
+	// - "per-account-channel-peer": Per-account+channel+user DM sessions
+	// Default: "per-channel-peer"
 	DMScope       string              `json:"dm_scope,omitempty"`
+	// IdentityLinks maps canonical user names to their platform-specific IDs
+	// Used to collapse multiple identities (e.g., Telegram + Discord) into one session
 	IdentityLinks map[string][]string `json:"identity_links,omitempty"`
 }
 
