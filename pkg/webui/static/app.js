@@ -45,21 +45,49 @@ function parseMarkdown(text) {
     // Horizontal rule (--- or ***)
     html = html.replace(/^([-*_]){3,}$/gm, '<hr>');
     
-    // Unordered lists (- or * at start of line)
-    html = html.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
-    // Wrap consecutive li elements in ul
-    html = html.replace(/(<li>.*<\/li>\n?)+/g, function(match) {
-        return '<ul>' + match + '</ul>';
-    });
-    
-    // Ordered lists (1. 2. 3. at start of line)
-    html = html.replace(/^\d+\.\s+(.+)$/gm, '<oli>$1</oli>');
-    // Wrap consecutive oli elements in ol
-    html = html.replace(/(<oli>.*<\/oli>\n?)+/g, function(match) {
-        return '<ol>' + match.replace(/<\/?oli>/g, function(tag) {
-            return tag.replace('oli', 'li');
-        }) + '</ol>';
-    });
+    // Unordered + Ordered lists с поддержкой вложенности
+    const lines = html.split('\n');
+    const listResult = [];
+    const stack = [];
+
+    function closeUntil(indent) {
+        while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+            listResult.push(`</${stack.pop().type}>`);
+        }
+    }
+
+    for (const line of lines) {
+        const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/);
+        const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+
+        if (ulMatch || olMatch) {
+            const type = ulMatch ? 'ul' : 'ol';
+            const rawIndent = (ulMatch || olMatch)[1];
+            const indent = rawIndent.replace(/\t/g, '  ').length;
+            const content = ulMatch ? ulMatch[2] : olMatch[2];
+
+            closeUntil(indent + 1);
+
+            if (stack.length === 0 || stack[stack.length - 1].indent < indent) {
+                stack.push({ type, indent });
+                listResult.push(`<${type}>`);
+            }
+
+            listResult.push(`<li>${content}</li>`);
+        } else {
+            const trimmed = line.trim();
+            // Пустая строка внутри активного списка — пропускаем, не закрываем стек
+            if (trimmed === '' && stack.length > 0) {
+                // не добавляем ничего, просто пропускаем
+                continue;
+            }
+            closeUntil(0);
+            listResult.push(line);
+                }
+    }
+    closeUntil(0);
+
+    html = listResult.join('\n');
     
     // Line breaks (convert newlines to <br> for non-block elements)
     // Split by double newline for paragraphs
@@ -77,6 +105,15 @@ function parseMarkdown(text) {
         block = block.replace(/\n/g, '<br>');
         return '<p>' + block + '</p>';
     }).join('\n');
+
+    // Удаляем пустые параграфы, которые могли случайно сгенерироваться
+    html = html.replace(/<p>\s*<\/p>/g, '');
+
+    // Удаляем переносы строк между блочными элементами списков
+    html = html.replace(/<\/ol>\s*<ol>/g, '</ol><ol>');
+    html = html.replace(/<\/ul>\s*<ul>/g, '</ul><ul>');
+    html = html.replace(/<\/ol>\s*<ul>/g, '</ol><ul>');
+    html = html.replace(/<\/ul>\s*<ol>/g, '</ul><ol>');
     
     return html;
 }
