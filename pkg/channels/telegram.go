@@ -352,7 +352,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 			if content != "" {
 				content += "\n"
 			}
-			content += "[image: photo]"
+			content += fmt.Sprintf("[image: photo] [file_id: %s]", photo.FileID)
 		}
 	}
 
@@ -373,15 +373,15 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 						"error": err.Error(),
 						"path":  voicePath,
 					})
-					transcribedText = "[voice (transcription failed)]"
+					transcribedText = fmt.Sprintf("[voice (transcription failed)] [file_id: %s]", message.Voice.FileID)
 				} else {
-					transcribedText = fmt.Sprintf("[voice transcription: %s]", result.Text)
+					transcribedText = fmt.Sprintf("[voice transcription: %s] [file_id: %s]", result.Text, message.Voice.FileID)
 					logger.InfoCF("telegram", "Voice transcribed successfully", map[string]any{
 						"text": result.Text,
 					})
 				}
 			} else {
-				transcribedText = "[voice]"
+				transcribedText = fmt.Sprintf("[voice] [file_id: %s]", message.Voice.FileID)
 			}
 
 			if content != "" {
@@ -399,7 +399,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 			if content != "" {
 				content += "\n"
 			}
-			content += "[audio]"
+			content += fmt.Sprintf("[audio] [file_id: %s]", message.Audio.FileID)
 		}
 	}
 
@@ -411,7 +411,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 			if content != "" {
 				content += "\n"
 			}
-			content += "[file]"
+			content += fmt.Sprintf("[file] [file_id: %s]", message.Document.FileID)
 		}
 	}
 
@@ -579,14 +579,9 @@ func markdownToTelegramHTML(text string) string {
 
 	text = regexp.MustCompile(`__(.+?)__`).ReplaceAllString(text, "<b>$1</b>")
 
-	reItalic := regexp.MustCompile(`_([^_]+)_`)
-	text = reItalic.ReplaceAllStringFunc(text, func(s string) string {
-		match := reItalic.FindStringSubmatch(s)
-		if len(match) < 2 {
-			return s
-		}
-		return "<i>" + match[1] + "</i>"
-	})
+	// Italic: manually process to avoid matching identifiers like file_id
+	// Only match _word_ where word is alphabetic and surrounded by whitespace/punctuation
+	text = processItalics(text)
 
 	text = regexp.MustCompile(`~~(.+?)~~`).ReplaceAllString(text, "<s>$1</s>")
 
@@ -607,6 +602,61 @@ func markdownToTelegramHTML(text string) string {
 	}
 
 	return text
+}
+
+// processItalics converts _word_ to <i>word</i> but avoids identifiers like file_id
+func processItalics(text string) string {
+	var result strings.Builder
+	i := 0
+	for i < len(text) {
+		// Look for underscore
+		if text[i] == '_' {
+			// Check if preceded by whitespace, start, or certain punctuation
+			canStart := i == 0 || isItalicBoundary(text[i-1])
+			if canStart {
+				// Find closing underscore
+				j := i + 1
+				for j < len(text) && text[j] != '_' && text[j] != ' ' && text[j] != '\n' {
+					j++
+				}
+				// Check if we found a closing underscore and it's followed by boundary
+				if j < len(text) && text[j] == '_' {
+					content := text[i+1 : j]
+					// Only process if content is alphabetic (no underscores/numbers)
+					if len(content) > 0 && isAllAlpha(content) {
+						// Check if followed by boundary
+						nextIdx := j + 1
+						if nextIdx >= len(text) || isItalicBoundary(text[nextIdx]) {
+							result.WriteString("<i>")
+							result.WriteString(content)
+							result.WriteString("</i>")
+							i = nextIdx
+							continue
+						}
+					}
+				}
+			}
+		}
+		result.WriteByte(text[i])
+		i++
+	}
+	return result.String()
+}
+
+// isItalicBoundary checks if a character is a valid boundary for italic markers
+func isItalicBoundary(c byte) bool {
+	return c == ' ' || c == '\n' || c == '\t' || c == '<' || c == '>' || c == '.' || c == ',' || c == '!' || c == '?' || c == ';' || c == ':'
+}
+
+// isAllAlpha checks if a string contains only alphabetic characters
+func isAllAlpha(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+			return false
+		}
+	}
+	return true
 }
 
 type codeBlockMatch struct {
@@ -662,4 +712,28 @@ func escapeHTML(text string) string {
 	text = strings.ReplaceAll(text, "<", "&lt;")
 	text = strings.ReplaceAll(text, ">", "&gt;")
 	return text
+}
+
+// GetBot returns the Telegram bot instance (for tools to use)
+func (c *TelegramChannel) GetBot() *telego.Bot {
+	return c.bot
+}
+
+// GetCurrentChatID returns the most recent chat ID for the current user
+// This is used by tools to send messages/files when no explicit chat_id is provided
+func (c *TelegramChannel) GetCurrentChatID() string {
+	// Get the last known chat ID from the map
+	// In a multi-user scenario, this would need more sophisticated tracking
+	for _, chatID := range c.chatIDs {
+		return fmt.Sprintf("%d", chatID)
+	}
+	return ""
+}
+
+// GetChatIDForUser returns the chat ID for a specific user ID
+func (c *TelegramChannel) GetChatIDForUser(userID string) string {
+	if chatID, ok := c.chatIDs[userID]; ok {
+		return fmt.Sprintf("%d", chatID)
+	}
+	return ""
 }

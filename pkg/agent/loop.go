@@ -229,6 +229,24 @@ func (al *AgentLoop) RegisterTool(tool tools.Tool) {
 
 func (al *AgentLoop) SetChannelManager(cm *channels.Manager) {
 	al.channelManager = cm
+
+	// Register Telegram-specific tools if channel is available
+	if cm != nil {
+		if ch, ok := cm.GetChannel("telegram"); ok && ch != nil {
+			for _, agentID := range al.registry.ListAgentIDs() {
+				if agent, ok := al.registry.GetAgent(agentID); ok {
+					workspace := agent.Workspace
+					restrict := al.cfg.Agents.Defaults.RestrictToWorkspace
+					agent.Tools.Register(tools.NewTelegramFileTool(cm, workspace, restrict))
+					agent.Tools.Register(tools.NewTelegramGetFileTool(cm, workspace, restrict))
+					logger.InfoCF("agent", "Telegram file tools registered",
+						map[string]any{
+							"agent_id": agentID,
+						})
+				}
+			}
+		}
+	}
 }
 
 // RecordLastChannel records the last active channel for this workspace.
