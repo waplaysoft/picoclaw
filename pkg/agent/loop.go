@@ -53,7 +53,8 @@ type processOptions struct {
 	ChatID                     string   // Target chat ID for tool execution
 	ThreadID                   string   // Target thread ID (for Telegram topics)
 	UserMessage                string   // User message content (may include prefix)
-	Media                      []string // Media file paths (images, etc.)
+	Media                      []string // Media file paths (images for vision)
+	Files                      []string // File paths (for read_file tool)
 	DefaultResponse            string   // Response when LLM returns empty
 	EnableSummary              bool     // Whether to trigger summarization
 	SendResponse               bool     // Whether to send response via bus
@@ -143,6 +144,11 @@ func registerSharedTools(
 			return nil
 		})
 		agent.Tools.Register(messageTool)
+
+		// WebUI file sending tool
+		webuiFileTool := tools.NewWebUISendFileTool(agent.Workspace, cfg.Agents.Defaults.RestrictToWorkspace)
+		webuiFileTool.SetMessageBus(msgBus)
+		agent.Tools.Register(webuiFileTool)
 
 		// Skill discovery and installation tools
 		registryMgr := skills.NewRegistryManagerFromConfig(skills.RegistryConfig{
@@ -253,6 +259,11 @@ func (al *AgentLoop) SetChannelManager(cm *channels.Manager) {
 	}
 }
 
+// GetConfig returns the agent loop configuration
+func (al *AgentLoop) GetConfig() *config.Config {
+	return al.cfg
+}
+
 // RecordLastChannel records the last active channel for this workspace.
 // This uses the atomic state save mechanism to prevent data loss on crash.
 func (al *AgentLoop) RecordLastChannel(channel string) error {
@@ -278,6 +289,7 @@ func (al *AgentLoop) ProcessDirect(ctx context.Context, content, sessionKey stri
 func (al *AgentLoop) ProcessDirectWithChannel(
 	ctx context.Context,
 	content, sessionKey, channel, chatID, role string, suppressIntermediateOutput bool,
+	files ...string,
 ) (string, error) {
 	msg := bus.InboundMessage{
 		Channel:    channel,
@@ -285,6 +297,7 @@ func (al *AgentLoop) ProcessDirectWithChannel(
 		ChatID:     chatID,
 		Content:    content,
 		SessionKey: sessionKey,
+		Files:      files,
 	}
 
 	// Process with the specified role
@@ -373,7 +386,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		Media:           msg.Media,
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
-		SendResponse:    false,
+		SendResponse:    msg.Channel == "webui", // Send response immediately for WebUI
 		MessageRole:     "user", // Default role for regular messages
 	})
 }
@@ -443,6 +456,8 @@ func (al *AgentLoop) processMessageWithRole(ctx context.Context, msg bus.Inbound
 		ChatID:                     msg.ChatID,
 		ThreadID:                   msg.ThreadID,
 		UserMessage:                msg.Content,
+		Media:                      msg.Media,
+		Files:                      msg.Files,
 		DefaultResponse:            "I've completed processing but have no response to give.",
 		EnableSummary:              true,
 		SendResponse:               true, // Send response for cron-triggered messages
@@ -532,10 +547,21 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 		history = agent.Sessions.GetHistory(opts.SessionKey)
 		summary = agent.Sessions.GetSummary(opts.SessionKey)
 	}
+	
+	// Add file information to user message
+	userMessage := opts.UserMessage
+	if len(opts.Files) > 0 {
+		fileList := ""
+		for _, f := range opts.Files {
+			fileList += fmt.Sprintf("\n- File: %s", f)
+		}
+		userMessage = fmt.Sprintf("%s\n\n[Attached files:%s]", userMessage, fileList)
+	}
+	
 	messages := agent.ContextBuilder.BuildMessages(
 		history,
 		summary,
-		opts.UserMessage,
+		userMessage,
 		opts.Media,
 		opts.Channel,
 		opts.ChatID,
@@ -926,6 +952,12 @@ func (al *AgentLoop) updateToolContexts(agent *AgentInstance, channel, chatID, t
 	if tool, ok := agent.Tools.Get("cron"); ok {
 		if ct, ok := tool.(tools.ContextualTool); ok {
 			ct.SetContext(channel, chatID, threadID)
+		}
+	}
+	// Update WebUI file tool
+	if tool, ok := agent.Tools.Get("webui_send_file"); ok {
+		if wt, ok := tool.(*tools.WebUISendFileTool); ok {
+			wt.SetContext(channel, chatID, threadID)
 		}
 	}
 }

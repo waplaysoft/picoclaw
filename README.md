@@ -15,6 +15,8 @@
 * Qdrant Vector Storage
 * Session Management
 * Forum topics (Telegram)
+* **File Handling** - Send and receive files in Telegram and WebUI
+* **Vision Support** - AI can analyze images from Telegram and filesystem
 
 ## 📦 Install
 
@@ -463,6 +465,9 @@ PicoClaw includes a built-in **web-based chat interface** for easy interaction w
 | **Message History** | Browse conversation history with pagination |
 | **Markdown Support** | Rich text rendering with code highlighting |
 | **Streaming Response** | Simulated streaming for smooth text display |
+| **File Upload** | Upload files via button or drag-and-drop |
+| **File Download** | Download files sent by the AI assistant |
+| **Vision Support** | AI can analyze uploaded images |
 
 ### Quick Start
 
@@ -576,6 +581,102 @@ curl -X POST http://localhost:8080/api/chat \
 - **Footer**: Current session info
 
 > **Note**: The WebUI runs as part of the gateway process. When the gateway stops, the WebUI server also stops.
+
+## 📎 File Handling
+
+PicoClaw supports comprehensive file handling across Telegram and WebUI channels, including vision model support for image analysis.
+
+### Telegram Files
+
+**Send Files to Agent:**
+- Send images, documents, audio, or voice messages
+- Agent receives file with `file_id` for download
+- Files automatically downloaded to workspace
+
+**Agent Sending Files:**
+- Use `telegram_send_file` tool to send files to users
+- Supports photos, documents, and audio
+- Optional caption for context
+
+**Example:**
+```json
+{
+  "name": "telegram_send_file",
+  "arguments": {
+    "file_path": "workspace/report.pdf",
+    "caption": "Here's the monthly report",
+    "file_type": "document"
+  }
+}
+```
+
+### WebUI Files
+
+**Upload Files:**
+- Click 📎 button or drag-and-drop
+- Files stored in `workspace/webui/uploads/{session}/`
+- Supported: images, documents, code files, archives
+
+**Download Files:**
+- Agent sends files via `webui_send_file` tool
+- Click download link in chat
+- Files served with `Content-Disposition: attachment`
+
+**Vision Support:**
+- Upload images for AI analysis
+- Agent uses vision-capable models (GPT-4V, Claude-3, etc.)
+- Describe images, read text, analyze diagrams
+
+### File System Tools
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read text files from workspace |
+| `read_image` | Analyze images using vision AI |
+| `write_file` | Create/modify files |
+| `telegram_send_file` | Send files via Telegram |
+| `telegram_get_file` | Download files from Telegram |
+| `webui_send_file` | Send files via WebUI |
+
+### Workspace Structure
+
+```
+workspace/
+├── media/
+│   └── received/          # Files from Telegram
+├── webui/
+│   ├── uploads/          # User uploaded files
+│   │   └── {session_id}/
+│   └── outputs/          # Files sent by agent
+└── sessions/             # Conversation history
+```
+
+### Security
+
+- Files restricted to workspace by default
+- Path validation prevents directory traversal
+- Size limits: 10MB (images), 50MB (WebUI uploads)
+- MIME type validation for images
+
+### Vision Model Configuration
+
+To enable image analysis, use a vision-capable model:
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": "gpt-4-vision-preview"
+    }
+  }
+}
+```
+
+**Supported Vision Models:**
+- OpenAI: `gpt-4-vision-preview`, `gpt-4o`
+- Anthropic: `claude-3-sonnet`, `claude-3-opus`
+- Google: `gemini-pro-vision`
+- Mistral: `mistral-medium-latest`
 
 ## ⚙️ Configuration
 

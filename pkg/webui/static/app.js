@@ -144,7 +144,6 @@ class PicoClawWebUI {
         this.messagesContainer = document.getElementById('messages');
         this.messageInput = document.getElementById('messageInput');
         this.sendBtn = document.getElementById('sendBtn');
-        this.attachBtn = document.getElementById('attachBtn');
         this.statusEl = document.getElementById('status');
         this.sessionInfoEl = document.getElementById('sessionInfo');
         this.sessionSelectEl = document.getElementById('sessionSelect');
@@ -188,10 +187,7 @@ class PicoClawWebUI {
 
         this.messageInput.addEventListener('input', () => this.autoResizeTextarea());
 
-        // Placeholder for attach button
-        this.attachBtn.addEventListener('click', () => {
-            console.log('Attach functionality coming soon');
-        });
+        // Attach button removed - file upload handled by files.js
 
         // Copy code button event delegation
         this.messagesContainer.addEventListener('click', (e) => {
@@ -398,10 +394,8 @@ class PicoClawWebUI {
     }
 
     updateSessionInfo() {
-        if (this.session) {
+        if (this.session && this.sessionInfoEl) {
             this.sessionInfoEl.textContent = `Session: ${this.session.slice(-8)}`;
-        } else {
-            this.sessionInfoEl.textContent = 'New Session';
         }
     }
 
@@ -482,6 +476,11 @@ class PicoClawWebUI {
         let typingEl = this.showTypingIndicator();
 
         try {
+            const session = localStorage.getItem('webui_session') || '';
+            
+            // Check if files.js is loaded and has uploaded files
+            const files = typeof uploadedFiles !== 'undefined' ? [...uploadedFiles] : [];
+            
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
@@ -489,104 +488,40 @@ class PicoClawWebUI {
                 },
                 body: JSON.stringify({
                     message: message,
-                    session: this.session || '',
-                    stream: true,
+                    session: session,
+                    files: files,
+                    stream: false
                 }),
             });
 
             if (!response.ok) {
-                throw new Error('Request failed');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Request failed');
+            }
+            
+            const data = await response.json();
+            
+            // Save session
+            if (data.session) {
+                localStorage.setItem('webui_session', data.session);
+            }
+            
+            // Clear uploaded files
+            if (typeof clearFilePreviews === 'function') {
+                clearFilePreviews();
             }
 
-            // Handle SSE stream
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let assistantMessageEl = null;
-            let content = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-
-                            // Handle thinking events
-                            if (data.type === 'thinking_start') {
-                                // Keep typing indicator visible
-                                continue;
-                            }
-                            if (data.type === 'thinking_end') {
-                                // Remove typing indicator when thinking is done
-                                if (typingEl && typingEl.parentNode) {
-                                    typingEl.remove();
-                                    typingEl = null;
-                                }
-                                continue;
-                            }
-
-                            // Store session from first message
-                            if (data.session && !this.session) {
-                                this.session = data.session;
-                                localStorage.setItem('picoclaw_session', this.session);
-                                this.updateSessionInfo();
-                                await this.loadSessionsList();
-                            }
-
-                            // Handle error
-                            if (data.error) {
-                                // Remove typing indicator if still present
-                                if (typingEl && typingEl.parentNode) {
-                                    typingEl.remove();
-                                    typingEl = null;
-                                }
-                                this.addMessage('Error: ' + data.error, 'assistant', true);
-                                break;
-                            }
-
-                            // Handle content
-                            if (data.content) {
-                                if (!assistantMessageEl) {
-                                    assistantMessageEl = this.addMessage('', 'assistant');
-                                }
-                                content += data.content;
-                                assistantMessageEl.querySelector('.message-content').innerHTML = parseMarkdown(content);
-                                assistantMessageEl.dataset.markdown = content;
-                                this.addCopyButtons();
-                                this.scrollToBottom();
-                            }
-
-                            // Check if done
-                            if (data.done) {
-                                this.isStreaming = false;
-                                this.sendBtn.disabled = false;
-                                // Reload sessions list to update preview
-                                await this.loadSessionsList();
-                            }
-                        } catch (e) {
-                            console.error('Parse error:', e);
-                        }
-                    }
-                }
-            }
-
+            // Remove typing indicator and show response
+            this.removeTypingIndicator(typingEl);
+            this.addMessage(data.content, 'assistant');
+            
         } catch (error) {
-            if (typingEl && typingEl.parentNode) {
-                typingEl.remove();
-            }
+            console.error('Send message error:', error);
+            this.removeTypingIndicator(typingEl);
             this.addMessage('Error: ' + error.message, 'assistant', true);
         } finally {
             this.isStreaming = false;
             this.sendBtn.disabled = false;
-            // Ensure typing indicator is removed
-            if (typingEl && typingEl.parentNode) {
-                typingEl.remove();
-            }
         }
     }
 
@@ -608,10 +543,13 @@ class PicoClawWebUI {
         `;
 
         const contentEl = messageEl.querySelector('.message-content');
-        
+
         // Parse markdown for assistant messages, plain text for user
         if (type === 'assistant' && !isError) {
-            contentEl.innerHTML = parseMarkdown(content);
+            let htmlContent = parseMarkdown(content);
+            // Add file download links
+            htmlContent = addFileLinksToMessage(htmlContent);
+            contentEl.innerHTML = htmlContent;
             messageEl.dataset.markdown = content;
             this.createMessageCopyButton(messageEl);
         } else {
@@ -659,6 +597,12 @@ class PicoClawWebUI {
         this.messagesContainer.appendChild(typingEl);
         this.scrollToBottom();
         return typingEl;
+    }
+
+    removeTypingIndicator(typingEl) {
+        if (typingEl && typingEl.parentNode) {
+            typingEl.remove();
+        }
     }
 
     scrollToBottom() {

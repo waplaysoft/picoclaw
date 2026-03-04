@@ -9,15 +9,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sipeed/picoclaw/pkg/agent"
+	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/session"
+	"github.com/sipeed/picoclaw/pkg/tools"
 )
 
 type Handlers struct {
@@ -34,15 +39,17 @@ func NewHandlers(agentLoop *agent.AgentLoop, sessionManager *session.SessionMana
 }
 
 type ChatRequest struct {
-	Message string `json:"message"`
-	Session string `json:"session,omitempty"`
-	Stream  bool   `json:"stream,omitempty"`
+	Message string   `json:"message"`
+	Session string   `json:"session,omitempty"`
+	Stream  bool     `json:"stream,omitempty"`
+	Files   []string `json:"files,omitempty"` // File paths from uploads
 }
 
 type ChatResponse struct {
-	Content string `json:"content"`
-	Session string `json:"session"`
-	Done    bool   `json:"done"`
+	Content string   `json:"content"`
+	Session string   `json:"session"`
+	Done    bool     `json:"done"`
+	Files   []string `json:"files,omitempty"` // Files sent by agent
 }
 
 type SessionInfo struct {
@@ -113,15 +120,28 @@ func (h *Handlers) ChatHandler(w http.ResponseWriter, r *http.Request) {
 	if req.Stream {
 		h.handleStreamChat(w, ctx, req.Message, session)
 	} else {
-		h.handleSimpleChat(w, ctx, req.Message, session)
+		h.handleSimpleChat(w, ctx, req.Message, session, req.Files)
 	}
 }
 
-func (h *Handlers) handleSimpleChat(w http.ResponseWriter, ctx context.Context, message, session string) {
-	response, err := h.agentLoop.ProcessDirectWithChannel(ctx, message, session, "webui", session, "user", false)
+func (h *Handlers) handleSimpleChat(w http.ResponseWriter, ctx context.Context, message, session string, files []string) {
+	var response string
+	var err error
+
+	if len(files) > 0 {
+		response, err = h.agentLoop.ProcessDirectWithChannel(ctx, message, session, "webui", session, "user", false, files...)
+	} else {
+		response, err = h.agentLoop.ProcessDirectWithChannel(ctx, message, session, "webui", session, "user", false)
+	}
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Append file download link if agent sent a file
+	if fileLink := tools.GetPendingFileLink(session); fileLink != "" {
+		response += "\n\n" + fileLink
 	}
 
 	resp := ChatResponse{
@@ -133,6 +153,7 @@ func (h *Handlers) handleSimpleChat(w http.ResponseWriter, ctx context.Context, 
 	json.NewEncoder(w).Encode(resp)
 }
 
+// handleStreamChat handles chat with SSE streaming - also handles file links from tools
 func (h *Handlers) handleStreamChat(w http.ResponseWriter, ctx context.Context, message, session string) {
 	// Set headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -334,21 +355,194 @@ func extractPeer(content string) string {
 // Tool and system messages are hidden.
 func filterMessagesForUI(messages []providers.Message) []providers.Message {
 	filtered := make([]providers.Message, 0, len(messages))
-	
+
 	for _, msg := range messages {
 		// Skip tool and system messages
 		if msg.Role == "tool" || msg.Role == "system" {
 			continue
 		}
-		
+
 		// Skip assistant messages with tool calls (intermediate reasoning steps)
 		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
 			continue
 		}
-		
+
 		// Allow user messages and assistant messages without tool calls
 		filtered = append(filtered, msg)
 	}
-	
+
 	return filtered
+}
+
+// FileUploadRequest represents a file upload request
+type FileUploadRequest struct {
+	Session string `json:"session,omitempty"`
+}
+
+// FileUploadResponse represents a file upload response
+type FileUploadResponse struct {
+	FilePath string `json:"file_path"`
+	FileName string `json:"file_name"`
+	FileSize int64  `json:"file_size"`
+}
+
+// FileUploadHandler handles file uploads from WebUI users
+func (h *Handlers) FileUploadHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse multipart form (max 50MB)
+	err := r.ParseMultipartForm(50 << 20) // 50MB
+	if err != nil {
+		http.Error(w, fmt.Sprintf("File too large (max 50MB): %v", err), http.StatusBadRequest)
+		return
+	}
+
+	session := r.FormValue("session")
+	if session == "" {
+		session = fmt.Sprintf("webui:%d", time.Now().UnixNano())
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get file: %v", err), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Create upload directory for session
+	uploadDir := filepath.Join(h.agentLoop.GetConfig().WorkspacePath(), "webui", "uploads", session)
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create upload directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate unique filename
+	timestamp := time.Now().Format("20060102_150405")
+	originalExt := filepath.Ext(header.Filename)
+	filename := fmt.Sprintf("%s_%s%s", timestamp, generateRandomString(6), originalExt)
+	filePath := filepath.Join(uploadDir, filename)
+
+	// Create destination file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to save file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	// Copy file content
+	written, err := io.Copy(dst, file)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to save file content: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	resp := FileUploadResponse{
+		FilePath: filePath,
+		FileName: header.Filename,
+		FileSize: written,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+
+// FileDownloadHandler handles file downloads for WebUI users
+func (h *Handlers) FileDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract file path from URL
+	// URL format: /api/files/download/{session_id}/{filename}
+	urlPath := strings.TrimPrefix(r.URL.Path, "/api/files/download/")
+	parts := strings.SplitN(urlPath, "/", 2)
+	if len(parts) != 2 {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
+		return
+	}
+
+	sessionID := parts[0]
+	filename := parts[1]
+
+	workspacePath := h.agentLoop.GetConfig().WorkspacePath()
+	
+	// Try multiple locations:
+	// 1. WebUI uploads directory
+	filePath := filepath.Join(workspacePath, "webui", "uploads", sessionID, filename)
+	
+	// 2. WebUI outputs directory
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		outputPath := filepath.Join(workspacePath, "webui", "outputs", sessionID, filename)
+		if _, err := os.Stat(outputPath); err == nil {
+			filePath = outputPath
+		}
+	}
+	
+	// 3. Workspace root (for existing workspace files)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		rootPath := filepath.Join(workspacePath, filename)
+		if _, err := os.Stat(rootPath); err == nil {
+			filePath = rootPath
+		}
+	}
+	
+	// 4. Direct path (if filename contains subpath)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		directPath := filepath.Join(workspacePath, filename)
+		if _, err := os.Stat(directPath); err == nil {
+			filePath = directPath
+		}
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		logger.WarnCF("webui", "File not found for download",
+			map[string]any{
+				"filename":    filename,
+				"session":     sessionID,
+				"searched_at": filePath,
+			})
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	logger.InfoCF("webui", "File download",
+		map[string]any{
+			"filename": filename,
+			"path":     filePath,
+		})
+
+	// Force download by setting Content-Type to octet-stream
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	
+	// Serve file
+	http.ServeFile(w, r, filePath)
+}
+
+// generateRandomString generates a random alphanumeric string of given length
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
+		time.Sleep(time.Nanosecond)
+	}
+	return string(b)
 }

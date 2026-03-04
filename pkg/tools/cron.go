@@ -14,7 +14,7 @@ import (
 
 // JobExecutor is the interface for executing cron jobs through the agent
 type JobExecutor interface {
-	ProcessDirectWithChannel(ctx context.Context, content, sessionKey, channel, chatID, role string, suppressIntermediateOutput bool) (string, error)
+	ProcessDirectWithChannel(ctx context.Context, content, sessionKey, channel, chatID, role string, suppressIntermediateOutput bool, files ...string) (string, error)
 }
 
 // CronTool provides scheduling capabilities for the agent

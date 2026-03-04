@@ -45,6 +45,8 @@ func NewServer(cfg *Config, handlers *Handlers) *Server {
 	mux.HandleFunc("/api/sessions", handlers.SessionsHandler)
 	mux.HandleFunc("/api/history", handlers.HistoryHandler)
 	mux.HandleFunc("/api/ready", handlers.ReadyHandler)
+	mux.HandleFunc("/api/files/upload", handlers.FileUploadHandler)
+	mux.HandleFunc("/api/files/download/", handlers.FileDownloadHandler)
 
 	// Static files
 	staticFS, _ := fs.Sub(staticFiles, "static")
