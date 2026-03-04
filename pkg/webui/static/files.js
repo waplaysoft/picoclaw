@@ -8,13 +8,10 @@ function initFileUpload() {
     const uploadBtn = document.getElementById('uploadBtn');
     const fileList = document.getElementById('fileList');
     
-    if (!fileInput || !uploadBtn) return;
+    if (!fileInput) return;
     
     // Handle file selection
     fileInput.addEventListener('change', handleFileSelect);
-    
-    // Handle upload button click
-    uploadBtn.addEventListener('click', () => fileInput.click());
     
     // Handle drag and drop
     const chatInput = document.getElementById('messageInput');
@@ -28,15 +25,27 @@ function initFileUpload() {
 // Handle file selection
 async function handleFileSelect(event) {
     const files = event.target.files;
-    if (files.length === 0) return;
-    
+    const status = document.getElementById('filePickerStatus');
+
+    // Обновляем статус до early return
+    if (files.length === 0) {
+        status.textContent = 'no files selected';
+        return;
+    } else if (files.length === 1) {
+        status.textContent = files[0].name;
+    } else {
+        status.textContent = `selected files: ${files.length}`;
+    }
+
     for (let file of files) {
         await uploadFile(file);
     }
     
-    // Reset input
+    // Reset input + сброс статуса
     event.target.value = '';
+    status.textContent = 'no files selected';
 }
+
 
 // Upload file to server
 async function uploadFile(file) {

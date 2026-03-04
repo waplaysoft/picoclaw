@@ -1254,11 +1254,13 @@ body {
 /* Input Container - Bottom Centered */
 .input-container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;  /* ← добавить */
+  align-items: center;     /* ← вместо justify-content: center */
   padding: var(--space-20) var(--space-16) var(--space-24);
   background: var(--color-background);
   flex-shrink: 0;
 }
+
 
 .input-wrapper {
   display: flex;
@@ -1607,6 +1609,8 @@ body {
 
 /* File Upload Styles */
 .file-list {
+  width: 100%;
+  max-width: var(--container-md);
   display: none;
   flex-wrap: wrap;
   gap: var(--space-8);
@@ -1701,4 +1705,42 @@ body {
 
 #file-input {
   display: none;
+}
+
+/* New file upload */
+
+.file-picker-row {
+    width: 100%;
+    max-width: var(--container-md);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px 0;
+}
+
+.file-picker-label {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary, #aaa);
+    background: var(--bg-secondary, #2a2a2a);
+    border: 1px solid var(--border, #444);
+    border-radius: 6px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.file-picker-label:hover {
+    background: var(--bg-hover, #333);
+}
+
+/* Прячем нативный input, но оставляем доступным */
+#fileInput {
+    display: none;
+}
+
+.file-picker-status {
+    font-size: 12px;
+    color: var(--text-muted, #666);
 }
