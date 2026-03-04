@@ -124,6 +124,9 @@ func registerSharedTools(
 		}
 		agent.Tools.Register(tools.NewWebFetchToolWithProxy(50000, cfg.Tools.Web.Proxy))
 
+		// Vision tool for image analysis
+		agent.Tools.Register(tools.NewReadImageTool(agent.Workspace, cfg.Agents.Defaults.RestrictToWorkspace, provider, agent.Model))
+
 		// Hardware tools (I2C, SPI) - Linux only, returns error on other platforms
 		agent.Tools.Register(tools.NewI2CTool())
 		agent.Tools.Register(tools.NewSPITool())
