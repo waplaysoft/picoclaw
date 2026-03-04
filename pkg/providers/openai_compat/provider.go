@@ -247,24 +247,78 @@ func parseResponse(body []byte) (*LLMResponse, error) {
 // It mirrors protocoltypes.Message but omits SystemParts, which is an
 // internal field that would be unknown to third-party endpoints.
 type openaiMessage struct {
-	Role       string     `json:"role"`
-	Content    string     `json:"content"`
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Role         string        `json:"role"`
+	Content      any           `json:"content"` // Can be string or []contentPart
+	ToolCalls    []ToolCall    `json:"tool_calls,omitempty"`
+	ToolCallID   string        `json:"tool_call_id,omitempty"`
+}
+
+// textContentPart represents a text part of multi-content message
+type textContentPart struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+// imageContentPart represents an image part of multi-content message
+type imageContentPart struct {
+	Type     string `json:"type"`
+	ImageURL struct {
+		URL string `json:"url"`
+	} `json:"image_url"`
 }
 
 // stripSystemParts converts []Message to []openaiMessage, dropping the
 // SystemParts field so it doesn't leak into the JSON payload sent to
 // OpenAI-compatible APIs (some strict endpoints reject unknown fields).
+// If a message has MultiContent, it converts it to OpenAI's content array format.
 func stripSystemParts(messages []Message) []openaiMessage {
 	out := make([]openaiMessage, len(messages))
 	for i, m := range messages {
-		out[i] = openaiMessage{
+		om := openaiMessage{
 			Role:       m.Role,
-			Content:    m.Content,
 			ToolCalls:  m.ToolCalls,
 			ToolCallID: m.ToolCallID,
 		}
+
+		// Check if message has multi-content (images)
+		if len(m.MultiContent) > 0 {
+			// Build content array for multi-content messages
+			var parts []any
+
+			// Add text content if present
+			if strings.TrimSpace(m.Content) != "" {
+				parts = append(parts, textContentPart{
+					Type: "text",
+					Text: m.Content,
+				})
+			}
+
+			// Add images
+			for _, img := range m.MultiContent {
+				if img.Type == "image" {
+					// Build data URL for base64 images
+					url := img.ImageURL
+					if img.Base64Data != "" {
+						url = fmt.Sprintf("data:%s;base64,%s", img.MIMEType, img.Base64Data)
+					}
+					parts = append(parts, imageContentPart{
+						Type: "image_url",
+						ImageURL: struct {
+							URL string `json:"url"`
+						}{
+							URL: url,
+						},
+					})
+				}
+			}
+
+			om.Content = parts
+		} else {
+			// Simple text message
+			om.Content = m.Content
+		}
+
+		out[i] = om
 	}
 	return out
 }

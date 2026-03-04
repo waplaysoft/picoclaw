@@ -2,10 +2,12 @@ package channels
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -319,6 +321,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 	content := ""
 	mediaPaths := []string{}
 	localFiles := []string{} // track local files that need cleanup
+	workspaceMediaPaths := []string{} // media files copied to workspace (persistent)
 
 	// ensure temp files are cleaned up when function returns
 	defer func() {
@@ -348,7 +351,13 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		photoPath := c.downloadPhoto(ctx, photo.FileID)
 		if photoPath != "" {
 			localFiles = append(localFiles, photoPath)
-			mediaPaths = append(mediaPaths, photoPath)
+			
+			// Copy to workspace for persistent access by agent
+			workspacePhotoPath := c.copyMediaToWorkspace(photoPath, "photo", ".jpg")
+			if workspacePhotoPath != "" {
+				workspaceMediaPaths = append(workspaceMediaPaths, workspacePhotoPath)
+			}
+			
 			if content != "" {
 				content += "\n"
 			}
@@ -395,7 +404,13 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		audioPath := c.downloadFile(ctx, message.Audio.FileID, ".mp3")
 		if audioPath != "" {
 			localFiles = append(localFiles, audioPath)
-			mediaPaths = append(mediaPaths, audioPath)
+			
+			// Copy to workspace for persistent access
+			workspaceAudioPath := c.copyMediaToWorkspace(audioPath, "audio", ".mp3")
+			if workspaceAudioPath != "" {
+				workspaceMediaPaths = append(workspaceMediaPaths, workspaceAudioPath)
+			}
+			
 			if content != "" {
 				content += "\n"
 			}
@@ -407,11 +422,22 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		docPath := c.downloadFile(ctx, message.Document.FileID, "")
 		if docPath != "" {
 			localFiles = append(localFiles, docPath)
-			mediaPaths = append(mediaPaths, docPath)
+			
+			// Copy to workspace for persistent access
+			ext := filepath.Ext(docPath)
+			if ext == "" {
+				ext = ".bin"
+			}
+			workspaceDocPath := c.copyMediaToWorkspace(docPath, "document", ext)
+			if workspaceDocPath != "" {
+				workspaceMediaPaths = append(workspaceMediaPaths, workspaceDocPath)
+			}
+			
 			if content != "" {
 				content += "\n"
 			}
-			content += fmt.Sprintf("[file] [file_id: %s]", message.Document.FileID)
+			// Add file path hint for agent to use read_file tool
+			content += fmt.Sprintf("[file: %s] [file_id: %s]", filepath.Base(workspaceDocPath), message.Document.FileID)
 		}
 	}
 
@@ -507,7 +533,7 @@ func (c *TelegramChannel) handleMessage(ctx context.Context, message *telego.Mes
 		metadata["thread_id"] = threadID
 	}
 
-	c.HandleMessage(fmt.Sprintf("%d", user.ID), fmt.Sprintf("%d", chatID), content, mediaPaths, metadata, threadID)
+	c.HandleMessage(fmt.Sprintf("%d", user.ID), fmt.Sprintf("%d", chatID), content, workspaceMediaPaths, metadata, threadID)
 	return nil
 }
 
@@ -548,6 +574,84 @@ func (c *TelegramChannel) downloadFile(ctx context.Context, fileID, ext string) 
 	}
 
 	return c.downloadFileWithInfo(file, ext)
+}
+
+// copyMediaToWorkspace copies a media file from temp location to workspace for persistent access.
+// Returns the workspace path or empty string if copy failed.
+func (c *TelegramChannel) copyMediaToWorkspace(sourcePath, prefix, ext string) string {
+	if sourcePath == "" {
+		return ""
+	}
+
+	// Get workspace path from config
+	workspacePath := c.config.WorkspacePath()
+	if workspacePath == "" {
+		// Fallback to default workspace
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			logger.ErrorCF("telegram", "Failed to get home directory", map[string]any{
+				"error": err.Error(),
+			})
+			return ""
+		}
+		workspacePath = filepath.Join(homeDir, ".picoclaw", "workspace")
+	}
+
+	// Create media directory in workspace
+	mediaDir := filepath.Join(workspacePath, "media", "received")
+	if err := os.MkdirAll(mediaDir, 0755); err != nil {
+		logger.ErrorCF("telegram", "Failed to create media directory", map[string]any{
+			"error": err.Error(),
+		})
+		return ""
+	}
+
+	// Generate unique filename
+	timestamp := time.Now().Format("20060102_150405")
+	filename := fmt.Sprintf("%s_%s_%s%s", prefix, timestamp, generateRandomString(6), ext)
+	destPath := filepath.Join(mediaDir, filename)
+
+	// Copy file
+	sourceData, err := os.ReadFile(sourcePath)
+	if err != nil {
+		logger.ErrorCF("telegram", "Failed to read source file", map[string]any{
+			"error": err.Error(),
+			"path":  sourcePath,
+		})
+		return ""
+	}
+
+	if err := os.WriteFile(destPath, sourceData, 0644); err != nil {
+		logger.ErrorCF("telegram", "Failed to write destination file", map[string]any{
+			"error": err.Error(),
+			"path":  destPath,
+		})
+		return ""
+	}
+
+	logger.InfoCF("telegram", "Media copied to workspace", map[string]any{
+		"source":      sourcePath,
+		"destination": destPath,
+	})
+
+	return destPath
+}
+
+// generateRandomString generates a random alphanumeric string of given length.
+func generateRandomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	result := make([]byte, length)
+	if _, err := rand.Read(result); err != nil {
+		// Fallback to simple approach if crypto/rand fails
+		for i := range result {
+			result[i] = charset[i%len(charset)]
+		}
+		return string(result)
+	}
+	for i := range result {
+		result[i] = charset[int(result[i])%len(charset)]
+	}
+	return string(result)
 }
 
 func parseChatID(chatIDStr string) (int64, error) {

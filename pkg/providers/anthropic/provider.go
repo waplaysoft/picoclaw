@@ -133,9 +133,38 @@ func buildParams(
 					anthropic.NewUserMessage(anthropic.NewToolResultBlock(msg.ToolCallID, msg.Content, false)),
 				)
 			} else {
-				anthropicMessages = append(anthropicMessages,
-					anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)),
-				)
+				// Check if message has multi-content (images)
+				if len(msg.MultiContent) > 0 {
+					var blocks []anthropic.ContentBlockParamUnion
+					
+					// Add text content if present
+					if strings.TrimSpace(msg.Content) != "" {
+						blocks = append(blocks, anthropic.NewTextBlock(msg.Content))
+					}
+					
+					// Add images
+					for _, img := range msg.MultiContent {
+						if img.Type == "image" && img.Base64Data != "" {
+							// Convert base64 to anthropic.ImageBlockParam
+							imageBlock := anthropic.ImageBlockParam{
+								Source: anthropic.ImageBlockParamSourceUnion{
+									OfBase64: &anthropic.Base64ImageSourceParam{
+										Data:      img.Base64Data,
+										MediaType: anthropic.Base64ImageSourceMediaType(img.MIMEType),
+									},
+								},
+							}
+							blocks = append(blocks, anthropic.ContentBlockParamUnion{OfImage: &imageBlock})
+						}
+					}
+					
+					anthropicMessages = append(anthropicMessages, anthropic.NewUserMessage(blocks...))
+				} else {
+					// Simple text message
+					anthropicMessages = append(anthropicMessages,
+						anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)),
+					)
+				}
 			}
 		case "assistant":
 			if len(msg.ToolCalls) > 0 {

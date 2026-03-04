@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -465,15 +467,86 @@ func (cb *ContextBuilder) BuildMessages(
 	// Add conversation history
 	messages = append(messages, history...)
 
-	// Add current user message
-	if strings.TrimSpace(currentMessage) != "" {
-		messages = append(messages, providers.Message{
-			Role:    "user",
-			Content: currentMessage,
-		})
+	// Add current user message with optional media attachments
+	if strings.TrimSpace(currentMessage) != "" || len(media) > 0 {
+		userMsg := buildUserMessage(currentMessage, media)
+		messages = append(messages, userMsg)
 	}
 
 	return messages
+}
+
+// buildUserMessage creates a user message with optional image attachments.
+// If media files are provided, it creates a multi-content message with text and images.
+// Only image files are sent to the LLM; other files are ignored (agent should use tools to read them).
+func buildUserMessage(text string, media []string) providers.Message {
+	msg := providers.Message{
+		Role:    "user",
+		Content: text,
+	}
+
+	if len(media) == 0 {
+		return msg
+	}
+
+	// Build multi-content message with text and images
+	var multiContent []providers.ImageContent
+
+	// Process each media file - only include actual images
+	for _, mediaPath := range media {
+		imageContent := loadImageAsContent(mediaPath)
+		if imageContent != nil {
+			multiContent = append(multiContent, *imageContent)
+		}
+		// Non-image files are skipped - agent will need to use tools to access them
+	}
+
+	// If we have images, set up multi-content message
+	if len(multiContent) > 0 {
+		// For backward compatibility, keep text in Content field
+		// Providers will use MultiContent when sending to API
+		msg.MultiContent = multiContent
+	}
+
+	return msg
+}
+
+// loadImageAsContent loads an image file and converts it to ImageContent.
+// Returns nil if the file cannot be loaded or is not an image.
+func loadImageAsContent(filePath string) *providers.ImageContent {
+	// Check file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		logger.WarnCF("agent", "Media file not found", map[string]any{"path": filePath})
+		return nil
+	}
+
+	// Read file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		logger.WarnCF("agent", "Failed to read media file", map[string]any{"path": filePath, "error": err.Error()})
+		return nil
+	}
+
+	// Detect MIME type
+	mimeType := http.DetectContentType(data)
+	
+	// Only accept actual image types
+	if !strings.HasPrefix(mimeType, "image/") {
+		logger.DebugCF("agent", "Skipping non-image media file", map[string]any{
+			"path": filePath, 
+			"type": mimeType,
+		})
+		return nil
+	}
+
+	// Encode as base64
+	base64Data := base64.StdEncoding.EncodeToString(data)
+
+	return &providers.ImageContent{
+		Type:       "image",
+		Base64Data: base64Data,
+		MIMEType:   mimeType,
+	}
 }
 
 func sanitizeHistoryForProvider(history []providers.Message) []providers.Message {

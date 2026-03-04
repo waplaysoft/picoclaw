@@ -53,14 +53,31 @@ type ContentBlock struct {
 	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
-type Message struct {
+// ImageContent represents an image attachment in a message.
+type ImageContent struct {
+	Type     string `json:"type"` // "image"
+	ImageURL string `json:"image_url"`
+	// For local files: base64 encoded data
+	Base64Data string `json:"base64_data,omitempty"`
+	// MIME type (e.g., "image/jpeg", "image/png")
+	MIMEType string `json:"mime_type,omitempty"`
+}
+
+// MultiContentMessage represents a message that can contain both text and images.
+type MultiContentMessage struct {
 	Role             string         `json:"role"`
-	Content          string         `json:"content"`
+	Content          string         `json:"content"` // Plain text content (for backward compatibility)
 	ReasoningContent string         `json:"reasoning_content,omitempty"`
-	SystemParts      []ContentBlock `json:"system_parts,omitempty"` // structured system blocks for cache-aware adapters
+	SystemParts      []ContentBlock `json:"system_parts,omitempty"`
 	ToolCalls        []ToolCall     `json:"tool_calls,omitempty"`
 	ToolCallID       string         `json:"tool_call_id,omitempty"`
+	// MultiContent allows mixed text and images. If non-empty, this takes precedence over Content.
+	MultiContent []ImageContent `json:"multi_content,omitempty"`
 }
+
+// Message is an alias for MultiContentMessage for backward compatibility.
+// New code should use MultiContentMessage directly when images are needed.
+type Message = MultiContentMessage
 
 type ToolDefinition struct {
 	Type     string                 `json:"type"`

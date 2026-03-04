@@ -48,19 +48,20 @@ type AgentLoop struct {
 
 // processOptions configures how a message is processed
 type processOptions struct {
-	SessionKey                 string // Session identifier for history/context
-	Channel                    string // Target channel for tool execution
-	ChatID                     string // Target chat ID for tool execution
-	ThreadID                   string // Target thread ID (for Telegram topics)
-	UserMessage                string // User message content (may include prefix)
-	DefaultResponse            string // Response when LLM returns empty
-	EnableSummary              bool   // Whether to trigger summarization
-	SendResponse               bool   // Whether to send response via bus
-	NoHistory                  bool   // If true, don't load session history (for heartbeat)
-	SentContent                string // Content already sent via message tool (for session storage)
-	IsSubagentResult           bool   // If true, this is a subagent result (save as "tool" role, not "user")
-	MessageRole                string // Role to use when saving message to session (default: "user")
-	SuppressIntermediateOutput bool   // If true, don't send intermediate tool results (for cron deliver=false)
+	SessionKey                 string   // Session identifier for history/context
+	Channel                    string   // Target channel for tool execution
+	ChatID                     string   // Target chat ID for tool execution
+	ThreadID                   string   // Target thread ID (for Telegram topics)
+	UserMessage                string   // User message content (may include prefix)
+	Media                      []string // Media file paths (images, etc.)
+	DefaultResponse            string   // Response when LLM returns empty
+	EnableSummary              bool     // Whether to trigger summarization
+	SendResponse               bool     // Whether to send response via bus
+	NoHistory                  bool     // If true, don't load session history (for heartbeat)
+	SentContent                string   // Content already sent via message tool (for session storage)
+	IsSubagentResult           bool     // If true, this is a subagent result (save as "tool" role, not "user")
+	MessageRole                string   // Role to use when saving message to session (default: "user")
+	SuppressIntermediateOutput bool     // If true, don't send intermediate tool results (for cron deliver=false)
 }
 
 func NewAgentLoop(cfg *config.Config, msgBus *bus.MessageBus, provider providers.LLMProvider) *AgentLoop {
@@ -366,6 +367,7 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		ChatID:          msg.ChatID,
 		ThreadID:        msg.ThreadID,
 		UserMessage:     msg.Content,
+		Media:           msg.Media,
 		DefaultResponse: "I've completed processing but have no response to give.",
 		EnableSummary:   true,
 		SendResponse:    false,
@@ -531,7 +533,7 @@ func (al *AgentLoop) runAgentLoop(ctx context.Context, agent *AgentInstance, opt
 		history,
 		summary,
 		opts.UserMessage,
-		nil,
+		opts.Media,
 		opts.Channel,
 		opts.ChatID,
 	)
